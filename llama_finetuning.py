@@ -192,19 +192,19 @@ def main(**kwargs):
 
     train_sampler = None
     val_sampler = None
-    if train_config.enable_fsdp:
-        train_sampler = DistributedSampler(
-            dataset_train,
-            rank=dist.get_rank(),
-            num_replicas=dist.get_world_size(),
-            shuffle=True,
-        )
-        if train_config.run_validation:
-            val_sampler = DistributedSampler(
-                dataset_val,
-                rank=dist.get_rank(),
-                num_replicas=dist.get_world_size(),
-            )
+    # if train_config.enable_fsdp:
+    #     train_sampler = DistributedSampler(
+    #         dataset_train,
+    #         rank=dist.get_rank(),
+    #         num_replicas=dist.get_world_size(),
+    #         shuffle=True,
+    #     )
+    #     if train_config.run_validation:
+    #         val_sampler = DistributedSampler(
+    #             dataset_val,
+    #             rank=dist.get_rank(),
+    #             num_replicas=dist.get_world_size(),
+    #         )
 
     # Create DataLoaders for the training and validation dataset
     train_dataloader = torch.utils.data.DataLoader(
