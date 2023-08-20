@@ -13,3 +13,5 @@ py7zr
 scipy
 optimum
 mosaicml-streaming
+bitsandbytes
+peft
