@@ -42,6 +42,11 @@ from utils.train_utils import (
     get_policies
 )
 
+from model_checkpointing.checkpoint_handler import (
+    load_model_checkpoint,
+    load_optimizer_checkpoint
+)
+
 print("Checking package versions...")
 # Read the requirements.txt file and extract package names and version constraints
 with open("requirements.txt") as f:
@@ -109,6 +114,13 @@ def main(**kwargs):
             load_in_8bit=True if train_config.quantization else None,
             device_map="auto" if train_config.quantization else None,
         )
+
+    if train_config.resume_from_checkpoint:
+        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+        model = LlamaForCausalLM(llama_config)
+        model = load_model_checkpoint(model,rank,train_config)
+
+
     if train_config.enable_fsdp and train_config.use_fast_kernels:
         """
         For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
@@ -231,7 +243,11 @@ def main(**kwargs):
             lr=train_config.lr,
             weight_decay=0.0,
         )
+
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
+
+    if train_config.resume_from_checkpoint:
+        optimizer = load_optimizer_checkpoint(model, train_config, rank)
 
     # Start the training process
     results = train(
