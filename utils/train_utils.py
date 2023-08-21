@@ -82,7 +82,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
             total_loss = 0.0
             for step, batch in enumerate(tqdm(train_dataloader,colour="blue", desc=f"Training Epoch{epoch}")):
                 if step < resume_step:
-                    print(f"skipping step {step}....starting from step {resume_step}")
+                    print(f"skipping step {step}....resuming from step {resume_step}")
                 for key in batch.keys():
                     if train_config.enable_fsdp:
                         batch[key] = batch[key].to(local_rank)
