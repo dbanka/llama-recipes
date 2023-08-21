@@ -8,6 +8,11 @@ class TokenisedDataset(StreamingDataset):
         'attention_mask': [],
         'labels': []
     }
+    dummy_sample = {
+        'input_ids': [],
+        'attention_mask': [],
+        'labels': []
+    }
     def __init__(self,
                  remote: str,
                  local: str,
