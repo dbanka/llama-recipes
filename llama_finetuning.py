@@ -19,6 +19,7 @@ from transformers import (
     LlamaConfig,
     default_data_collator,
 )
+from streaming.base import StreamingDataLoader
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 
 import policies
@@ -85,7 +86,11 @@ def main(**kwargs):
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
 
     # Load the pre-trained model and setup its configuration
-    if train_config.enable_fsdp and train_config.low_cpu_fsdp:
+    if train_config.resume_from_checkpoint:
+        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+        model = LlamaForCausalLM(llama_config)
+        load_model_checkpoint(model,rank,train_config)
+    elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
         """
         for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
         this avoids cpu oom when loading large models like llama 70B, in which case
@@ -115,10 +120,6 @@ def main(**kwargs):
             device_map="auto" if train_config.quantization else None,
         )
 
-    if train_config.resume_from_checkpoint:
-        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        model = LlamaForCausalLM(llama_config)
-        load_model_checkpoint(model,rank,train_config)
 
 
     if train_config.enable_fsdp and train_config.use_fast_kernels:
@@ -207,7 +208,7 @@ def main(**kwargs):
     #         )
 
     # Create DataLoaders for the training and validation dataset
-    train_dataloader = torch.utils.data.DataLoader(
+    train_dataloader = StreamingDataLoader(
         dataset_train,
         batch_size=train_config.batch_size_training,
         num_workers=train_config.num_workers_dataloader,
@@ -218,7 +219,7 @@ def main(**kwargs):
     )
 
     if train_config.run_validation:
-        eval_dataloader = torch.utils.data.DataLoader(
+        eval_dataloader = StreamingDataLoader(
             dataset_val,
             batch_size=train_config.val_batch_size,
             num_workers=train_config.num_workers_dataloader,
@@ -247,6 +248,7 @@ def main(**kwargs):
     if train_config.resume_from_checkpoint:
         sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
         optimizer.load_state_dict(sharded_optim_state_dict)
+        print(f"loaded optimizer from checkpoint from path: {}",train_config.optimizer_model_filename )
 
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
