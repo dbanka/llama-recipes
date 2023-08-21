@@ -118,7 +118,7 @@ def main(**kwargs):
     if train_config.resume_from_checkpoint:
         llama_config = LlamaConfig.from_pretrained(train_config.model_path)
         model = LlamaForCausalLM(llama_config)
-        model = load_model_checkpoint(model,rank,train_config)
+        load_model_checkpoint(model,rank,train_config)
 
 
     if train_config.enable_fsdp and train_config.use_fast_kernels:
@@ -244,10 +244,12 @@ def main(**kwargs):
             weight_decay=0.0,
         )
 
+    if train_config.resume_from_checkpoint:
+        sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
+        optimizer.load_state_dict(sharded_optim_state_dict)
+
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
-    if train_config.resume_from_checkpoint:
-        optimizer = load_optimizer_checkpoint(model, train_config, rank)
 
     # Start the training process
     results = train(

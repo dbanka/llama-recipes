@@ -225,20 +225,14 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
 
         print(f"--> saved {opt_save_full_path} to disk")
 
-def load_optimizer_checkpoint(model,cfg, rank):
+
+def load_optimizer_checkpoint(model, cfg, rank):
     """load an fsdp optimizer full_state checkpoint using scatter method
     this ensures only rank 0 loads the optimizer state dict and scatters to other ranks
     """
-    folder_name = (
-            cfg.dist_checkpoint_root_folder
-            + "/"
-            + cfg.dist_checkpoint_folder
+    optimizer_checkpoint_path = (
+            Path.cwd() / cfg.checkpoint_folder / cfg.optimizer_model_filename
     )
-    save_dir = Path.cwd() / folder_name
-    opt_save_name = (
-            "optimizer" + "-" + cfg.model_name + "-" + str(epoch) + ".pt"
-    )
-    optimizer_checkpoint_path = save_dir / opt_save_name
 
     if not optimizer_checkpoint_path.is_file():
         print(
@@ -247,7 +241,6 @@ def load_optimizer_checkpoint(model,cfg, rank):
         return
 
     full_osd = None
-
     if rank == 0:
         full_osd = torch.load(optimizer_checkpoint_path)
 
@@ -256,28 +249,7 @@ def load_optimizer_checkpoint(model,cfg, rank):
 
     print(f"optimizer shard loaded on rank {rank}")
 
-
-def load_optimizer_checkpoint(model, optimizer_checkpoint_path, rank):
-    """load an fsdp optimizer full_state checkpoint using scatter method
-    this ensures only rank 0 loads the optimizer state dict and scatters to other ranks
-    """
-
-
-    if not optimizer_checkpoint_path.is_file():
-        print(
-            f"warning - optimizer checkpoint not present {optimizer_checkpoint_path}. Returning. "
-        )
-        return
-
-    full_osd = None
-
-    if rank == 0:
-        full_osd = torch.load(optimizer_checkpoint_path)
-
-    # called from all ranks, though only rank0 has a valid param for full_osd
-    sharded_osd = FSDP.scatter_full_optim_state_dict(full_osd, model)
-
-    print(f"optimizer shard loaded on rank {rank}")
+    return sharded_osd
 
 def load_sharded_model_single_gpu(model,model_path):
     
