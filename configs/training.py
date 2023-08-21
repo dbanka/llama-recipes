@@ -12,7 +12,7 @@ class train_config:
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=True
-    batch_size_training: int=32
+    batch_size_training: int=4
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -21,9 +21,9 @@ class train_config:
     seed: int=42
     use_fp16: bool=False
     mixed_precision: bool=False
-    val_batch_size: int=2
+    val_batch_size: int=1
     dataset = "tokenized_dataset"
-    micro_batch_size: int=4
+    micro_batch_size: int=1
     peft_method: str = "lora" # None , llama_adapter, prefix
     use_peft: bool=False
     output_dir: str = "/opt/ml/model"
@@ -37,4 +37,5 @@ class train_config:
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True, # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = False
+    checkpoint_steps: int = 50
     

@@ -104,6 +104,36 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
                         print(f"\n step {step} is completed and loss is {loss.detach().float()}")
                 else:
                     print(f"\n step {step} is completed and loss is {loss.detach().float()}")
+                checkpoint_start_time = time.perf_counter()
+                if step > 0 and step % train_config.checkpoint_steps == 0:
+                    if train_config.enable_fsdp:
+                        dist.barrier()
+                    if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
+
+                        model_checkpointing.save_model_checkpoint(
+                            model, optimizer, rank, train_config, epoch=epoch, step=step
+                        )
+                    elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
+                        print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
+                        print("=====================================================")
+
+                        model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                        if train_config.save_optimizer:
+                            model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
+                                                                                 optim=optimizer)
+                            print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                            print("=====================================================")
+
+                    if train_config.save_optimizer:
+                        model_checkpointing.save_optimizer_checkpoint(
+                            model, optimizer, rank, train_config, epoch=epoch, step = step
+                        )
+                        print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
+                        print("=====================================================")
+                    if train_config.enable_fsdp:
+                        dist.barrier()
+                checkpoint_end_time = time.perf_counter() - checkpoint_start_time
+                checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
         epoch_times.append(epoch_end_time)    
         # Reducing total_loss across all devices if there's more than one CUDA device

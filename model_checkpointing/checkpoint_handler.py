@@ -124,6 +124,7 @@ def save_model_checkpoint(
     rank,
     cfg,
     epoch=1,
+    step=-1
 ):
     """saving model via rank0 cpu streaming and full_state_dict"""
 
@@ -145,7 +146,10 @@ def save_model_checkpoint(
         )
         save_dir = Path.cwd() / folder_name
         save_dir.mkdir(parents=True, exist_ok=True)
-        save_name = cfg.model_name + "-" + str(epoch) + ".pt"
+        if step > 0:
+            save_name = cfg.model_name + "-" + str(epoch) +"-"+str(step) + ".pt"
+        else:
+            save_name = cfg.model_name + "-" + str(epoch) + ".pt"
         save_full_path = str(save_dir) + "/" + save_name
 
         # save model
@@ -183,7 +187,7 @@ def load_model_checkpoint(model, rank, cfg):
     print(f"model checkpoint loaded to rank0 cpu")
 
 
-def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1):
+def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
     """save optimizer state via full state dict"""
 
    
@@ -205,9 +209,14 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1):
         save_dir = Path.cwd() / folder_name
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        opt_save_name = (
-            "optimizer" + "-" + cfg.model_name + "-" + str(epoch) + ".pt"
-        )
+        if step>0:
+            opt_save_name = (
+                    "optimizer" + "-" + cfg.model_name + "-" + str(epoch)+"-"+ str(step) + ".pt"
+            )
+        else:
+            opt_save_name = (
+                "optimizer" + "-" + cfg.model_name + "-" + str(epoch) + ".pt"
+            )
         opt_save_full_path = save_dir / opt_save_name
 
         print(f"--> saving optimizer state...")
