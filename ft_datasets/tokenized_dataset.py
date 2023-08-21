@@ -31,16 +31,15 @@ class TokenisedDataset(StreamingDataset):
         return obj
 
 
-def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
+def get_tokenized_dataset(dataset_config, tokenizer, split="train", offset=0):
     # Create streaming dataset
     if split == "train":
         dataset = TokenisedDataset(local=dataset_config.data_path + "/train",
                                    remote=dataset_config.remote_data_path + "/train", shuffle=True,
-                                   shuffle_seed=42, shuffle_algo= "py1s")
+                                   shuffle_seed=42, shuffle_algo= "py1s", offset=offset)
 
     else:
         dataset = TokenisedDataset(local=dataset_config.data_path + "/test",
-                                   remote=dataset_config.remote_data_path + "/test", shuffle=True,
-                                   shuffle_seed=42, shuffle_algo="py1s")
+                                   remote=dataset_config.remote_data_path + "/test", shuffle=False)
 
     return dataset
