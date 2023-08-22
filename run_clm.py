@@ -50,9 +50,9 @@ def safe_save_model_for_hf_trainer(trainer: Trainer, tokenizer: LlamaTokenizer, 
     save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
     with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
         cpu_state_dict = model.state_dict()
-    if trainer.args.should_save:
-        trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
-        tokenizer.save_pretrained(output_dir)
+
+    trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
+    tokenizer.save_pretrained(output_dir)
 
 
 def parse_arge():
@@ -62,9 +62,12 @@ def parse_arge():
     parser.add_argument(
         "--model_id",
         type=str,
-        default="google/flan-t5-xl",
+        default="meta-llama/Llama-2-7b-hf",
         help="Model id to use for training.",
     )
+    parser.add_argument("--model_dir", type=str,
+                        default=os.environ.get('SM_MODEL_DIR'),
+                        help="Directory to save model files.")
     parser.add_argument("--dataset_path", type=str, default="lm_dataset", help="Path to dataset.")
     # add training hyperparameters for epochs, batch size, learning rate, and seed
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs to train for.")
@@ -106,7 +109,7 @@ def training_function(train_config, fsdp_config, args):
     # set seed
     set_seed(args.seed)
 
-    tokenizer = LlamaTokenizer.from_pretrained(args.model_id)
+    tokenizer = LlamaTokenizer.from_pretrained(train_config.tokenizer_name)
 
     dataset_config = generate_dataset_config(train_config, {})
 
@@ -126,7 +129,7 @@ def training_function(train_config, fsdp_config, args):
     # dataset = load_from_disk(args.dataset_path)
     # load model from the hub
     model = LlamaForCausalLM.from_pretrained(
-        args.model_id,
+        train_config.model_path,
         use_cache=False if args.gradient_checkpointing else True,  # this is needed for gradient checkpointing
     )
     if train_config.enable_fsdp and train_config.use_fast_kernels:
@@ -201,7 +204,7 @@ def training_function(train_config, fsdp_config, args):
     print("Training done!")
 
     # save model and tokenizer for easy inference
-    safe_save_model_for_hf_trainer(trainer, tokenizer, "/opt/ml/model/")
+    safe_save_model_for_hf_trainer(trainer, tokenizer, args.model_dir)
     dist.barrier()
 
 
