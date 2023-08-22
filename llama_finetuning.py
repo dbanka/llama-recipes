@@ -86,14 +86,15 @@ def main(**kwargs):
     # Calculate gradient accumulation steps
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
     resume_epoch = 0
-    resume_step = 0
+    resume_step = -1
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
+        resume_epoch, resume_step = load_checkpoint_params(train_config)
         llama_config = LlamaConfig.from_pretrained(train_config.model_path)
         with torch.device("meta"):
             model = LlamaForCausalLM(llama_config)
-        load_model_checkpoint(model,rank,train_config)
-        resume_epoch, resume_step = load_checkpoint_params(train_config)
+        load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
+        
 
 
     elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
@@ -252,7 +253,7 @@ def main(**kwargs):
         )
 
     if train_config.resume_from_checkpoint:
-        sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
+        sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         optimizer.load_state_dict(sharded_optim_state_dict)
         print(f"loaded optimizer from checkpoint from path: {train_config.optimizer_model_filename}")
 

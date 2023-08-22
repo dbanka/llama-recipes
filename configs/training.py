@@ -38,8 +38,8 @@ class train_config:
     use_fast_kernels: bool = True, # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = False
     checkpoint_steps: int = 10
-    checkpoint_folder: str = "/opt/ml/checkpoints"
-    checkpoint_model_filename: str = "meta-llama-2-7b-0-50.pt"
-    optimizer_model_filename: str = "optimizer-meta-llama-2-7b-0-50.pt"
+    # checkpoint_folder: str = "/opt/ml/checkpoints"
+    # checkpoint_model_filename: str = "meta-llama-2-7b-0-50.pt"
+    # optimizer_model_filename: str = "optimizer-meta-llama-2-7b-0-50.pt"
 
     

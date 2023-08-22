@@ -75,19 +75,16 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     best_val_loss = float("inf")
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
-            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
+            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step + 1}")
             continue
         epoch_start_time = time.perf_counter()
         epoch_iterator = train_dataloader
-        global_step = resume_step 
-        if resume_step > 0:
-            epoch_iterator = skip_first_batches(epoch_iterator, resume_step)
-            resume_step = 0
+        epoch_iterator = skip_first_batches(epoch_iterator, resume_step + 1)
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
             total_loss = 0.0
             for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}")):
-                global_step += step
+                global_step = resume_step + step + 1
                 for key in batch.keys():
                     if train_config.enable_fsdp:
                         batch[key] = batch[key].to(local_rank)
@@ -116,7 +113,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
                 if global_step > 0 and global_step % train_config.checkpoint_steps == 0:
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step, len(train_dataloader))
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
@@ -147,6 +144,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
         epoch_times.append(epoch_end_time)    
+        resume_step = -1
         # Reducing total_loss across all devices if there's more than one CUDA device
         if torch.cuda.device_count() > 1 and train_config.enable_fsdp:
             dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
