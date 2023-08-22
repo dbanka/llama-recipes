@@ -22,6 +22,7 @@ from torch.nn import functional as F
 from transformers import LlamaForCausalLM, LlamaTokenizer
 from torch.distributed.fsdp import StateDictType
 import torch.distributed as dist
+from accelerate import skip_first_batches
 from pkg_resources import packaging
 from .memory_utils import MemoryTrace
 import model_checkpointing
@@ -77,12 +78,16 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
             print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
             continue
         epoch_start_time = time.perf_counter()
+        epoch_iterator = train_dataloader
+        global_step = resume_step 
+        if resume_step > 0:
+            epoch_iterator = skip_first_batches(epoch_iterator, resume_step)
+            resume_step = 0
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
             total_loss = 0.0
-            for step, batch in enumerate(tqdm(train_dataloader,colour="blue", desc=f"Training Epoch{epoch}")):
-                if step < resume_step:
-                    print(f"skipping step {step}....resuming from step {resume_step}")
+            for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}")):
+                global_step += step
                 for key in batch.keys():
                     if train_config.enable_fsdp:
                         batch[key] = batch[key].to(local_rank)
@@ -94,30 +99,30 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.use_fp16:
                     # if fp16 is enabled, use gradient scaler to handle gradient update
                     scaler.scale(loss).backward()
-                    if (step + 1) % gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
                         scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad()
                 else:
                     # regular backpropagation when fp16 is not used
                     loss.backward()
-                    if (step + 1) % gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
                         optimizer.step()
                         optimizer.zero_grad()
                 if train_config.enable_fsdp:
                     if rank==0:       
-                        print(f"\n step {step} is completed and loss is {loss.detach().float()}")
+                        print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 else:
-                    print(f"\n step {step} is completed and loss is {loss.detach().float()}")
+                    print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
-                if step > 0 and step % train_config.checkpoint_steps == 0:
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, step, len(train_dataloader))
+                if global_step > 0 and global_step % train_config.checkpoint_steps == 0:
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step, len(train_dataloader))
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
 
                         model_checkpointing.save_model_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step=step
+                            model, optimizer, rank, train_config, epoch=epoch, step=global_step
                         )
                     elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
@@ -132,7 +137,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
 
                     if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step = step
+                            model, optimizer, rank, train_config, epoch=epoch, step = global_step
                         )
                         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")
