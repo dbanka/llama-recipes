@@ -83,7 +83,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
             total_loss = 0.0
-            for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}")):
+            for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}", initial=resume_step + 1)):
                 global_step = resume_step + step + 1
                 for key in batch.keys():
                     if train_config.enable_fsdp:

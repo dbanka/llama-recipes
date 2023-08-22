@@ -312,5 +312,5 @@ def load_checkpoint_params(cfg):
         params = json.load(f)
     resume_epoch = params["epoch"]
     resume_step = params["step"]
-    print(f"Resuming training from epoch {resume_epoch} and step {resume_step}")
+    print(f"Resuming training from epoch {resume_epoch} and step {resume_step + 1}")
     return resume_epoch, resume_step
