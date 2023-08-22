@@ -17,7 +17,7 @@ from transformers import (
 from transformers.trainer_utils import FSDPOption
 
 from configs import fsdp_config, train_config
-from policies import LlamaTrainer
+from policies.llama_trainer import LlamaTrainer
 
 from utils.config_utils import (
     update_config,
