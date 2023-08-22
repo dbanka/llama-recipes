@@ -176,7 +176,7 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
         )
     load_dir = Path.cwd() / folder_name
     file_name = cfg.model_name + "-" + str(epoch) +"-"+str(step) + ".pt"
-    load_full_path = str(load_dir) + "/" + file_name
+    load_full_path = load_dir / file_name
     # is it present...
     if not load_full_path.is_file():
         raise Exception(
@@ -245,7 +245,7 @@ def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     file_name = (
             "optimizer" + "-" + cfg.model_name + "-" + str(epoch)+"-"+ str(step) + ".pt"
     )
-    load_full_path = str(load_dir) + "/" + file_name
+    load_full_path = load_dir / file_name
 
     if not load_full_path.is_file():
         raise Exception(
