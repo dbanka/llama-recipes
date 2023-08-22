@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from datetime import datetime
+import json
 import torch
 import time
 
@@ -269,3 +270,31 @@ def load_sharded_model_single_gpu(model,model_path):
     
     print(f"Sharded state checkpoint loaded from {model_path}")
     return model
+
+def save_checkpoint_params(cfg, epoch, step, dataset_len):
+    folder_name = (
+        cfg.dist_checkpoint_root_folder
+        + "/"
+        + cfg.dist_checkpoint_folder
+        )
+    save_dir = Path.cwd() / folder_name
+    save_dir.mkdir(parents=True, exist_ok=True)
+    params_save_full_path = save_dir / "ckpt_params.json"
+    if step + 1 == len(dataset_len): # final step
+        epoch += 1
+        step = 0
+    params = {
+        "epoch": epoch,
+        "step": step,
+    }
+    with open(params_save_full_path, "w") as f:
+        json.dump(params, f)
+
+
+def load_checkpoint_params(cfg):
+    full_ckpt_params_path = (
+        Path.cwd() / cfg.dist_checkpoint_root_folder / cfg.dist_checkpoint_folder / "ckpt_params.json"
+    )
+    with open(full_ckpt_params_path, "r") as f:
+        params = json.load(f)
+    return params["epoch"], params["step"]

@@ -39,7 +39,7 @@ def set_tokenizer_params(tokenizer: LlamaTokenizer):
 def byte2mb(x):
     return int(x / 2**20)
 
-def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_scheduler, gradient_accumulation_steps, train_config, fsdp_config=None, local_rank=None, rank=None):
+def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_scheduler, gradient_accumulation_steps, train_config, fsdp_config=None, local_rank=None, rank=None, resume_epoch=0, resume_step=0):
     """
     Trains the model on the given dataloader
     
@@ -73,11 +73,16 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
     results = {}
     best_val_loss = float("inf")
     for epoch in range(train_config.num_epochs):
+        if epoch < resume_epoch:
+            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
+            continue
         epoch_start_time = time.perf_counter()
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
             total_loss = 0.0
             for step, batch in enumerate(tqdm(train_dataloader,colour="blue", desc=f"Training Epoch{epoch}")):
+                if step < resume_step:
+                    print(f"skipping step {step}....resuming from step {resume_step}")
                 for key in batch.keys():
                     if train_config.enable_fsdp:
                         batch[key] = batch[key].to(local_rank)
@@ -106,6 +111,7 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
                     print(f"\n step {step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
                 if step > 0 and step % train_config.checkpoint_steps == 0:
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, step, len(train_dataloader))
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:

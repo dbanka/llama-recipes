@@ -45,7 +45,8 @@ from utils.train_utils import (
 
 from model_checkpointing.checkpoint_handler import (
     load_model_checkpoint,
-    load_optimizer_checkpoint
+    load_optimizer_checkpoint,
+    load_checkpoint_params,
 )
 
 print("Checking package versions...")
@@ -84,12 +85,17 @@ def main(**kwargs):
 
     # Calculate gradient accumulation steps
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
-
+    resume_epoch = 0
+    resume_step = 0
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
         llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        model = LlamaForCausalLM(llama_config)
+        with torch.device("meta"):
+            model = LlamaForCausalLM(llama_config)
         load_model_checkpoint(model,rank,train_config)
+        resume_epoch, resume_step = load_checkpoint_params(train_config)
+
+
     elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
         """
         for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
@@ -178,6 +184,7 @@ def main(**kwargs):
         tokenizer,
         dataset_config,
         split="train",
+        offset=resume_step
     )
 
     if not train_config.enable_fsdp or rank == 0:
@@ -266,6 +273,8 @@ def main(**kwargs):
         fsdp_config if train_config.enable_fsdp else None,
         local_rank if train_config.enable_fsdp else None,
         rank if train_config.enable_fsdp else None,
+        resume_epoch,
+        resume_step,
     )
     if not train_config.enable_fsdp or rank==0:
         [print(f'Key: {k}, Value: {v}') for k, v in results.items()]
