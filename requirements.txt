@@ -1,7 +1,6 @@
-# torch==2.0.1
-# torchvision==0.15.2
-# torchaudio==2.0.2
-# https://download.pytorch.org/whl/cu116/torchdistx-0.2.0%2Bcu116-cp310-cp310-manylinux_2_17_x86_64.whl
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
 transformers>=4.31.0
 accelerate>=0.21.0
 deepspeed>=0.10.1

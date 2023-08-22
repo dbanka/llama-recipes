@@ -8,6 +8,7 @@ import torch
 import torch.distributed as dist
 import torch.optim as optim
 from pkg_resources import packaging
+from torch.optim.lr_scheduler import StepLR
 from transformers import (
     LlamaForCausalLM,
     LlamaTokenizer,
@@ -17,6 +18,7 @@ from transformers import (
 from transformers.trainer_utils import FSDPOption
 
 from configs import fsdp_config, train_config
+from policies import AnyPrecisionAdamW
 
 from utils.config_utils import (
     update_config,
@@ -242,13 +244,13 @@ def main(**kwargs):
 
     # Initialize the optimizer and learning rate scheduler
     # if fsdp_config.pure_bf16 and fsdp_config.optimizer == "anyprecision":
-    #     optimizer = AnyPrecisionAdamW(
-    #         model.parameters(),
-    #         lr=train_config.lr,
-    #         momentum_dtype=torch.bfloat16,
-    #         variance_dtype=torch.bfloat16,
-    #         use_kahan_summation=False,
-    #     )
+    optimizer = AnyPrecisionAdamW(
+            model.parameters(),
+            lr=train_config.lr,
+            momentum_dtype=torch.bfloat16,
+            variance_dtype=torch.bfloat16,
+            use_kahan_summation=False,
+    )
     # else:
     #     optimizer = optim.AdamW(
     #         model.parameters(),
@@ -261,7 +263,7 @@ def main(**kwargs):
     #     optimizer.load_state_dict(sharded_optim_state_dict)
     #     print(f"loaded optimizer from checkpoint from path: {}",train_config.optimizer_model_filename )
 
-    # scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
+    scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
 
     # # Start the training process
@@ -303,8 +305,6 @@ def main(**kwargs):
         logging_steps=10,
         save_strategy="steps",
         save_steps=train_config.checkpoint_steps,
-        optim="adamw_anyprecision",
-        optim_args="use_kahan_summation=False,momentum_dtype=bfloat16,variance_dtype=bfloat16",
         ddp_timeout=7200,
         fsdp=[FSDPOption.FULL_SHARD,FSDPOption.AUTO_WRAP],
         gradient_accumulation_steps=gradient_accumulation_steps,
@@ -321,6 +321,7 @@ def main(**kwargs):
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
         data_collator=default_data_collator,
+        optimizers=(optimizer,scheduler)
     )
     print("starting trainer!!!")
 
