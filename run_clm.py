@@ -112,9 +112,9 @@ def training_function(train_config, fsdp_config, args):
     set_seed(args.seed)
 
     tokenizer = LlamaTokenizer.from_pretrained(train_config.tokenizer_name)
-
+    print("loaded tokenizer!!!")
     dataset_config = generate_dataset_config(train_config, {})
-
+    print("generated dataset config!!!")
      # Load and preprocess the dataset for training and validation
     dataset_train = get_preprocessed_dataset(
         tokenizer,
