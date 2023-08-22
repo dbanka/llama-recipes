@@ -280,12 +280,10 @@ def save_checkpoint_params(cfg, epoch, step, dataset_len):
     save_dir = Path.cwd() / folder_name
     save_dir.mkdir(parents=True, exist_ok=True)
     params_save_full_path = save_dir / "ckpt_params.json"
-    if step + 1 == len(dataset_len): # final step
-        epoch += 1
-        step = 0
     params = {
         "epoch": epoch,
         "step": step,
+        "dataset_len": dataset_len
     }
     with open(params_save_full_path, "w") as f:
         json.dump(params, f)
@@ -297,4 +295,11 @@ def load_checkpoint_params(cfg):
     )
     with open(full_ckpt_params_path, "r") as f:
         params = json.load(f)
-    return params["epoch"], params["step"]
+    resume_epoch = params["epoch"]
+    resume_step = params["step"]
+    if resume_step + 1 == params["dataset_len"]:
+        resume_epoch += 1
+        resume_step = 0
+    else:
+        resume_step += 1
+    return resume_epoch, resume_step

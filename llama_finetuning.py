@@ -184,7 +184,6 @@ def main(**kwargs):
         tokenizer,
         dataset_config,
         split="train",
-        offset=resume_step
     )
 
     if not train_config.enable_fsdp or rank == 0:
