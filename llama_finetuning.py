@@ -282,7 +282,7 @@ def main(**kwargs):
     #     [print(f'Key: {k}, Value: {v}') for k, v in results.items()]
 
     fsdp_config_dic = {
-        "fsdp_transformer_layer_cls_to_wrap": ["LlamaDecoderLayer"],
+        "fsdp_transformer_layer_cls_to_wrap": "LlamaDecoderLayer",
     }
 
     print("setting training arguments!!!")
@@ -311,7 +311,7 @@ def main(**kwargs):
         save_total_limit=2,
         bf16_full_eval=True,
         resume_from_checkpoint=None,
-        fsdp_config=fsdp_config_dic
+        fsdp_transformer_layer_cls_to_wrap="LlamaDecoderLayer"
     )
 
     # Create Trainer instance
