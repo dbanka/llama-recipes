@@ -1,9 +1,10 @@
 torch==2.0.1
 transformers>=4.31.0
 accelerate
+deepspeed==0.10.1
 appdirs
 loralib
-bitsandbytes==0.39.1
+bitsandbytes
 black
 black[jupyter]
 datasets
@@ -13,5 +14,4 @@ py7zr
 scipy
 optimum
 mosaicml-streaming
-bitsandbytes
 peft
