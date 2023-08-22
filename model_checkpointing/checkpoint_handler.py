@@ -179,10 +179,9 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     load_full_path = str(load_dir) + "/" + file_name
     # is it present...
     if not load_full_path.is_file():
-        print(
+        raise Exception(
             f"model checkpoint {load_full_path} not present. Returning..."
         )
-        return
 
 
     model_checkpoint = torch.load(load_full_path)
@@ -249,10 +248,9 @@ def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     load_full_path = str(load_dir) + "/" + file_name
 
     if not load_full_path.is_file():
-        print(
+        raise Exception(
             f"warning - optimizer checkpoint not present {load_full_path}. Returning. "
         )
-        return
 
     full_osd = None
     if rank == 0:
@@ -305,8 +303,14 @@ def load_checkpoint_params(cfg):
     full_ckpt_params_path = (
         Path.cwd() / cfg.dist_checkpoint_root_folder / cfg.dist_checkpoint_folder / "ckpt_params.json"
     )
+    if not full_ckpt_params_path.is_file():
+        raise Exception(
+            f"warning - optimizer checkpoint not present {full_ckpt_params_path}. Returning. "
+        )
+    
     with open(full_ckpt_params_path, "r") as f:
         params = json.load(f)
     resume_epoch = params["epoch"]
     resume_step = params["step"]
+    print(f"Resuming training from epoch {resume_epoch} and step {resume_step}")
     return resume_epoch, resume_step
