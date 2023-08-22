@@ -8,25 +8,16 @@ import torch
 import torch.distributed as dist
 import torch.optim as optim
 from pkg_resources import packaging
-from torch.distributed.fsdp import (
-    FullyShardedDataParallel as FSDP,
-)
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DistributedSampler
 from transformers import (
     LlamaForCausalLM,
     LlamaTokenizer,
     LlamaConfig,
     default_data_collator,
 )
-from streaming.base import StreamingDataLoader
-from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+from transformers.trainer_utils import FSDPOption
 
-import policies
 from configs import fsdp_config, train_config
-from policies import AnyPrecisionAdamW
 
-from utils import fsdp_auto_wrap_policy
 from utils.config_utils import (
     update_config,
     generate_dataset_config,
@@ -47,6 +38,8 @@ from model_checkpointing.checkpoint_handler import (
     load_model_checkpoint,
     load_optimizer_checkpoint
 )
+from transformers import Trainer, TrainingArguments
+
 
 print("Checking package versions...")
 # Read the requirements.txt file and extract package names and version constraints
@@ -61,6 +54,24 @@ for requirement in requirements:
         print(f"{package.project_name}: Installed version {package.version}")
     except Exception:
         print(f"{req.project_name}: Not installed or parsing error")
+
+
+def safe_save_model_for_hf_trainer(trainer: Trainer, tokenizer: LlamaTokenizer, output_dir: str):
+    """Helper method to save model for HF Trainer."""
+    # see: https://github.com/tatsu-lab/stanford_alpaca/issues/65
+    from torch.distributed.fsdp import (
+        FullyShardedDataParallel as FSDP,
+        FullStateDictConfig,
+        StateDictType,
+    )
+
+    model = trainer.model
+    save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
+        cpu_state_dict = model.state_dict()
+
+    trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
+    tokenizer.save_pretrained(output_dir)
 
 def main(**kwargs):
     # Update the configuration for the training and sharding process
@@ -86,53 +97,53 @@ def main(**kwargs):
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
 
     # Load the pre-trained model and setup its configuration
-    if train_config.resume_from_checkpoint:
-        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        model = LlamaForCausalLM(llama_config)
-        load_model_checkpoint(model,rank,train_config)
-    elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
-        """
-        for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
-        this avoids cpu oom when loading large models like llama 70B, in which case
-        model alone would consume 2+TB cpu mem (70 * 4 * 8). This will add some comms
-        overhead and currently requires latest nightly.
-        """
-        v = packaging.version.parse(torch.__version__)
-        verify_latest_nightly = v.is_devrelease and v.dev >= 20230701
-        if not verify_latest_nightly:
-            raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
-                            "please install latest nightly.")
-        if rank == 0:
-            model = LlamaForCausalLM.from_pretrained(
-                train_config.model_path,
-                load_in_8bit=True if train_config.quantization else None,
-                device_map="auto" if train_config.quantization else None,
-            )
-        else:
-            llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-            with torch.device("meta"):
-                model = LlamaForCausalLM(llama_config)
+    # if train_config.resume_from_checkpoint:
+    #     llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+    #     model = LlamaForCausalLM(llama_config)
+    #     load_model_checkpoint(model,rank,train_config)
+    # elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
+    #     """
+    #     for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
+    #     this avoids cpu oom when loading large models like llama 70B, in which case
+    #     model alone would consume 2+TB cpu mem (70 * 4 * 8). This will add some comms
+    #     overhead and currently requires latest nightly.
+    #     """
+    #     v = packaging.version.parse(torch.__version__)
+    #     verify_latest_nightly = v.is_devrelease and v.dev >= 20230701
+    #     if not verify_latest_nightly:
+    #         raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
+    #                         "please install latest nightly.")
+    #     if rank == 0:
+    #         model = LlamaForCausalLM.from_pretrained(
+    #             train_config.model_path,
+    #             load_in_8bit=True if train_config.quantization else None,
+    #             device_map="auto" if train_config.quantization else None,
+    #         )
+    #     else:
+    #         llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+    #         with torch.device("meta"):
+    #             model = LlamaForCausalLM(llama_config)
 
-    else:
-        model = LlamaForCausalLM.from_pretrained(
-            train_config.model_path,
-            load_in_8bit=True if train_config.quantization else None,
-            device_map="auto" if train_config.quantization else None,
-        )
+    # else:
+    model = LlamaForCausalLM.from_pretrained(
+        train_config.model_path,
+        load_in_8bit=True if train_config.quantization else None,
+        device_map="auto" if train_config.quantization else None,
+    )
 
 
 
-    if train_config.enable_fsdp and train_config.use_fast_kernels:
-        """
-        For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
-        using of Flash Attention or Xformer memory-efficient kernels 
-        based on the hardware being used. This would speed up fine-tuning.
-        """
-        try:
-            from optimum.bettertransformer import BetterTransformer
-            model = BetterTransformer.transform(model) 
-        except ImportError:
-            print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
+    # if train_config.enable_fsdp and train_config.use_fast_kernels:
+    #     """
+    #     For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
+    #     using of Flash Attention or Xformer memory-efficient kernels
+    #     based on the hardware being used. This would speed up fine-tuning.
+    #     """
+    #     try:
+    #         from optimum.bettertransformer import BetterTransformer
+    #         model = BetterTransformer.transform(model)
+    #     except ImportError:
+    #         print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
     print_model_size(model, train_config, rank if train_config.enable_fsdp else 0)
 
     # Convert the model to bfloat16 if fsdp and pure_bf16 is enabled
@@ -148,28 +159,28 @@ def main(**kwargs):
             }
         )
     #setting up FSDP if enable_fsdp is enabled
-    if train_config.enable_fsdp:
-        if train_config.freeze_layers:
-
-            freeze_transformer_layers(train_config.num_freeze_layers)
-
-        mixed_precision_policy, wrapping_policy = get_policies(fsdp_config, rank)
-
-        model = FSDP(
-            model,
-            auto_wrap_policy=  wrapping_policy,
-            mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
-            sharding_strategy=fsdp_config.sharding_strategy,
-            device_id=torch.cuda.current_device(),
-            limit_all_gathers=True,
-            sync_module_states=train_config.low_cpu_fsdp,
-            param_init_fn=lambda module: module.to_empty(device=torch.device("cuda"), recurse=False)
-            if train_config.low_cpu_fsdp and rank != 0 else None,
-        )
-        if fsdp_config.fsdp_activation_checkpointing:
-            policies.apply_fsdp_checkpointing(model)
-    elif not train_config.quantization and not train_config.enable_fsdp:
-        model.to("cuda")
+    # if train_config.enable_fsdp:
+    #     if train_config.freeze_layers:
+    #
+    #         freeze_transformer_layers(train_config.num_freeze_layers)
+    #
+    #     mixed_precision_policy, wrapping_policy = get_policies(fsdp_config, rank)
+    #
+    #     model = FSDP(
+    #         model,
+    #         auto_wrap_policy=  wrapping_policy,
+    #         mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
+    #         sharding_strategy=fsdp_config.sharding_strategy,
+    #         device_id=torch.cuda.current_device(),
+    #         limit_all_gathers=True,
+    #         sync_module_states=train_config.low_cpu_fsdp,
+    #         param_init_fn=lambda module: module.to_empty(device=torch.device("cuda"), recurse=False)
+    #         if train_config.low_cpu_fsdp and rank != 0 else None,
+    #     )
+    #     if fsdp_config.fsdp_activation_checkpointing:
+    #         policies.apply_fsdp_checkpointing(model)
+    # elif not train_config.quantization and not train_config.enable_fsdp:
+    #     model.to("cuda")
 
     dataset_config = generate_dataset_config(train_config, kwargs)
 
@@ -208,67 +219,120 @@ def main(**kwargs):
     #         )
 
     # Create DataLoaders for the training and validation dataset
-    train_dataloader = StreamingDataLoader(
-        dataset_train,
-        batch_size=train_config.batch_size_training,
-        num_workers=train_config.num_workers_dataloader,
-        pin_memory=True,
-        sampler=train_sampler if train_sampler else None,
-        drop_last=True,
-        collate_fn=default_data_collator,
-    )
+    # train_dataloader = StreamingDataLoader(
+    #     dataset_train,
+    #     batch_size=train_config.batch_size_training,
+    #     num_workers=train_config.num_workers_dataloader,
+    #     pin_memory=True,
+    #     sampler=train_sampler if train_sampler else None,
+    #     drop_last=True,
+    #     collate_fn=default_data_collator,
+    # )
 
-    if train_config.run_validation:
-        eval_dataloader = StreamingDataLoader(
-            dataset_val,
-            batch_size=train_config.val_batch_size,
-            num_workers=train_config.num_workers_dataloader,
-            pin_memory=True,
-            sampler=val_sampler if val_sampler else None,
-            drop_last=True,
-            collate_fn=default_data_collator,
-        )
+    # if train_config.run_validation:
+    #     eval_dataloader = StreamingDataLoader(
+    #         dataset_val,
+    #         batch_size=train_config.val_batch_size,
+    #         num_workers=train_config.num_workers_dataloader,
+    #         pin_memory=True,
+    #         sampler=val_sampler if val_sampler else None,
+    #         drop_last=True,
+    #         collate_fn=default_data_collator,
+    #     )
 
     # Initialize the optimizer and learning rate scheduler
-    if fsdp_config.pure_bf16 and fsdp_config.optimizer == "anyprecision":
-        optimizer = AnyPrecisionAdamW(
-            model.parameters(),
-            lr=train_config.lr,
-            momentum_dtype=torch.bfloat16,
-            variance_dtype=torch.bfloat16,
-            use_kahan_summation=False,
-        )
-    else:
-        optimizer = optim.AdamW(
-            model.parameters(),
-            lr=train_config.lr,
-            weight_decay=0.0,
-        )
+    # if fsdp_config.pure_bf16 and fsdp_config.optimizer == "anyprecision":
+    #     optimizer = AnyPrecisionAdamW(
+    #         model.parameters(),
+    #         lr=train_config.lr,
+    #         momentum_dtype=torch.bfloat16,
+    #         variance_dtype=torch.bfloat16,
+    #         use_kahan_summation=False,
+    #     )
+    # else:
+    #     optimizer = optim.AdamW(
+    #         model.parameters(),
+    #         lr=train_config.lr,
+    #         weight_decay=0.0,
+    #     )
 
-    if train_config.resume_from_checkpoint:
-        sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
-        optimizer.load_state_dict(sharded_optim_state_dict)
-        print(f"loaded optimizer from checkpoint from path: {}",train_config.optimizer_model_filename )
+    # if train_config.resume_from_checkpoint:
+    #     sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
+    #     optimizer.load_state_dict(sharded_optim_state_dict)
+    #     print(f"loaded optimizer from checkpoint from path: {}",train_config.optimizer_model_filename )
 
-    scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
+    # scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
 
-    # Start the training process
-    results = train(
-        model,
-        train_dataloader,
-        eval_dataloader,
-        tokenizer,
-        optimizer,
-        scheduler,
-        gradient_accumulation_steps,
-        train_config,
-        fsdp_config if train_config.enable_fsdp else None,
-        local_rank if train_config.enable_fsdp else None,
-        rank if train_config.enable_fsdp else None,
+    # # Start the training process
+    # results = train(
+    #     model,
+    #     train_dataloader,
+    #     eval_dataloader,
+    #     tokenizer,
+    #     optimizer,
+    #     scheduler,
+    #     gradient_accumulation_steps,
+    #     train_config,
+    #     fsdp_config if train_config.enable_fsdp else None,
+    #     local_rank if train_config.enable_fsdp else None,
+    #     rank if train_config.enable_fsdp else None,
+    # )
+    # if not train_config.enable_fsdp or rank==0:
+    #     [print(f'Key: {k}, Value: {v}') for k, v in results.items()]
+
+    fsdp_config_dic = {
+        "fsdp_transformer_layer_cls_to_wrap": ["LlamaDecoderLayer"],
+    }
+
+    print("setting training arguments!!!")
+
+    # Define training args
+    output_dir = train_config.checkpoint_folder
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        overwrite_output_dir=True,
+        per_device_train_batch_size=train_config.micro_batch_size,
+        bf16=fsdp_config.pure_bf16,  # Use BF16 if available
+        learning_rate=train_config.lr,
+        num_train_epochs=train_config.num_epochs,
+        gradient_checkpointing=True,
+        # logging strategies
+        logging_dir=f"{output_dir}/logs",
+        logging_strategy="steps",
+        logging_steps=10,
+        save_strategy="steps",
+        save_steps=train_config.checkpoint_steps,
+        optim="adamw_anyprecision",
+        optim_args="use_kahan_summation=False,momentum_dtype:bfloat16,variance_dtype:bfloat16",
+        ddp_timeout=7200,
+        fsdp=[FSDPOption.FULL_SHARD,FSDPOption.AUTO_WRAP],
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        save_total_limit=2,
+        bf16_full_eval=True,
+        resume_from_checkpoint=None,
+        fsdp_config=fsdp_config_dic
     )
-    if not train_config.enable_fsdp or rank==0:
-        [print(f'Key: {k}, Value: {v}') for k, v in results.items()]
+
+    # Create Trainer instance
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset_train,
+        eval_dataset=dataset_val,
+        data_collator=default_data_collator,
+    )
+    print("starting trainer!!!")
+
+
+    # Start training
+    trainer.train()
+
+    print("Training done!")
+
+    # save model and tokenizer for easy inference
+    safe_save_model_for_hf_trainer(trainer, tokenizer, train_config.output_dir)
+    dist.barrier()
 
 if __name__ == "__main__":
     fire.Fire(main)
