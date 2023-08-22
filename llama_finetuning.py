@@ -254,7 +254,6 @@ def main(**kwargs):
     if train_config.resume_from_checkpoint:
         sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         optimizer.load_state_dict(sharded_optim_state_dict)
-        print(f"loaded optimizer from checkpoint from path: {train_config.optimizer_model_filename}")
 
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
