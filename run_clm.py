@@ -102,10 +102,12 @@ def parse_arge():
     )
 
     args = parser.parse_known_args()
+    print("argument parsed!!")
     return args
 
 
 def training_function(train_config, fsdp_config, args):
+    print("entered training function!!!")
     # set seed
     set_seed(args.seed)
 
@@ -136,31 +138,27 @@ def training_function(train_config, fsdp_config, args):
 
     print("model loaded!!!")
 
-    if train_config.enable_fsdp and train_config.use_fast_kernels:
-        """
-        For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
-        using of Flash Attention or Xformer memory-efficient kernels 
-        based on the hardware being used. This would speed up fine-tuning.
-        """
-        try:
-            from optimum.bettertransformer import BetterTransformer
-            model = BetterTransformer.transform(model)
-        except ImportError:
-            print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
+    # if train_config.enable_fsdp and train_config.use_fast_kernels:
+    #     """
+    #     For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
+    #     using of Flash Attention or Xformer memory-efficient kernels
+    #     based on the hardware being used. This would speed up fine-tuning.
+    #     """
+    #     try:
+    #         from optimum.bettertransformer import BetterTransformer
+    #         model = BetterTransformer.transform(model)
+    #     except ImportError:
+    #         print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
 
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
 
     if train_config.enable_fsdp and fsdp_config.pure_bf16:
         model.to(torch.bfloat16)
 
-    mixed_precision_policy, wrapping_policy = get_policies(fsdp_config, 0)
     if fsdp_config.fsdp_activation_checkpointing:
         policies.apply_fsdp_checkpointing(model)
+    print("setting activation checkpointing!!!")
 
-    if fsdp_config.pure_bf16 and fsdp_config.optimizer == "anyprecision":
-        optimizer = "adamw_anyprecision"
-    else:
-        optimizer = args.optimizer
 
     fsdp_config_dic = {
         "fsdp_transformer_layer_cls_to_wrap": ["LlamaDecoderLayer"],
