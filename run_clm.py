@@ -125,6 +125,7 @@ def training_function(train_config, fsdp_config, args):
         dataset_config,
         split="test",
     )
+    print("dataset loaded!!!")
 
     # dataset = load_from_disk(args.dataset_path)
     # load model from the hub
@@ -132,6 +133,9 @@ def training_function(train_config, fsdp_config, args):
         train_config.model_path,
         use_cache=False if args.gradient_checkpointing else True,  # this is needed for gradient checkpointing
     )
+
+    print("model loaded!!!")
+
     if train_config.enable_fsdp and train_config.use_fast_kernels:
         """
         For FSDP and FSDP+PEFT, setting 'use_fast_kernels' will enable
@@ -161,6 +165,8 @@ def training_function(train_config, fsdp_config, args):
     fsdp_config_dic = {
         "fsdp_transformer_layer_cls_to_wrap": ["LlamaDecoderLayer"],
     }
+
+    print("setting training arguments!!!")
 
     # Define training args
     output_dir = train_config.checkpoint_folder
@@ -197,6 +203,8 @@ def training_function(train_config, fsdp_config, args):
         eval_dataset=dataset_val,
         data_collator=default_data_collator,
     )
+    print("starting trainer!!!")
+
 
     # Start training
     trainer.train()
