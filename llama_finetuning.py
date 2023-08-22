@@ -91,8 +91,7 @@ def main(**kwargs):
     if train_config.resume_from_checkpoint:
         resume_epoch, resume_step = load_checkpoint_params(train_config)
         llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        with torch.device("meta"):
-            model = LlamaForCausalLM(llama_config)
+        model = LlamaForCausalLM(llama_config)
         load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         
 
