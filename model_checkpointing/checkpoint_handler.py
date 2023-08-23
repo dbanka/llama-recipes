@@ -184,8 +184,8 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
         # integrate into loaded model
         model.load_state_dict(model_checkpoint)
         print(f"model checkpoint loaded to rank0 cpu")
-    
-    print(f"bypass on rank {rank}")
+    else:
+        print(f"bypass on rank {rank}")
     return True
 
 
