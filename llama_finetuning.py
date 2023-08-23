@@ -302,7 +302,6 @@ def main(**kwargs):
         save_strategy="steps",
         save_steps=train_config.checkpoint_steps,
         optim="adamw_apex_fused",
-        optim_args="use_kahan_summation=False,momentum_dtype=bfloat16,variance_dtype=bfloat16",
         ddp_timeout=7200,
         fsdp=[FSDPOption.FULL_SHARD,FSDPOption.AUTO_WRAP],
         save_total_limit=2,
