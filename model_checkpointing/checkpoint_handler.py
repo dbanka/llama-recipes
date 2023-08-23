@@ -179,10 +179,8 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     load_full_path = load_dir / file_name
     # is it present...
     if not load_full_path.is_file():
-        raise Exception(
-            f"model checkpoint {load_full_path} not present. Returning..."
-        )
-
+        print(f"model checkpoint not found - {load_full_path} ")
+        return False
 
     model_checkpoint = torch.load(load_full_path)
     # integrate into loaded model
@@ -190,6 +188,7 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
 
     
     print(f"model checkpoint loaded to rank0 cpu")
+    return True
 
 
 def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
@@ -236,6 +235,8 @@ def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     """load an fsdp optimizer full_state checkpoint using scatter method
     this ensures only rank 0 loads the optimizer state dict and scatters to other ranks
     """
+    if rank != 0:
+        return
     folder_name = (
         cfg.dist_checkpoint_root_folder
         + "/"
@@ -248,9 +249,8 @@ def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     load_full_path = load_dir / file_name
 
     if not load_full_path.is_file():
-        raise Exception(
-            f"warning - optimizer checkpoint not present {load_full_path}. Returning. "
-        )
+        raise Exception(f"optimizer checkpoint not found {load_full_path}")
+        
 
     full_osd = None
     if rank == 0:
@@ -300,13 +300,14 @@ def save_checkpoint_params(cfg, epoch, step):
 
 
 def load_checkpoint_params(cfg):
+    resume_epoch = 0
+    resume_step = -1
     full_ckpt_params_path = (
         Path.cwd() / cfg.dist_checkpoint_root_folder / cfg.dist_checkpoint_folder / "ckpt_params.json"
     )
     if not full_ckpt_params_path.is_file():
-        raise Exception(
-            f"warning - optimizer checkpoint not present {full_ckpt_params_path}. Returning. "
-        )
+        print(f"checkpoint params not found - {full_ckpt_params_path}")
+        return resume_epoch, resume_step
     
     with open(full_ckpt_params_path, "r") as f:
         params = json.load(f)
