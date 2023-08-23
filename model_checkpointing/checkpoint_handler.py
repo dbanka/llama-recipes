@@ -233,8 +233,6 @@ def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     """load an fsdp optimizer full_state checkpoint using scatter method
     this ensures only rank 0 loads the optimizer state dict and scatters to other ranks
     """
-    if rank != 0:
-        return
     folder_name = (
         cfg.dist_checkpoint_root_folder
         + "/"
