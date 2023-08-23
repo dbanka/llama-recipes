@@ -87,7 +87,7 @@ def main(**kwargs):
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
     resume_epoch = 0
     resume_step = -1
-    status = False
+    model_checkpoint_found = False
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
         resume_epoch, resume_step = load_checkpoint_params(train_config)
