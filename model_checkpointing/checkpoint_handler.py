@@ -291,6 +291,7 @@ def save_checkpoint_params(cfg, epoch, step):
         "epoch": epoch,
         "step": step,
     }
+    print("Saving checkpoint params...")
     with open(params_save_full_path, "w") as f:
         json.dump(params, f)
 

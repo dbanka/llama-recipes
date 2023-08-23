@@ -113,7 +113,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
                 if global_step > 0 and global_step % train_config.checkpoint_steps == 0:
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
@@ -140,6 +139,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                         print("=====================================================")
                     if train_config.enable_fsdp:
                         dist.barrier()
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
