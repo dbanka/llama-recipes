@@ -75,7 +75,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     best_val_loss = float("inf")
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
-            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step + 1}")
+            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
             continue
         epoch_start_time = time.perf_counter()
         epoch_iterator = train_dataloader
