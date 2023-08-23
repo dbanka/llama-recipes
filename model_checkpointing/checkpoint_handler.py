@@ -165,9 +165,6 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     """load local checkpoint to rank0 cpu
     must be called * before * passing to FSDP"""
 
-    if rank != 0:
-        return
-
     # where is the checkpoint at...
     folder_name = (
         cfg.dist_checkpoint_root_folder
@@ -181,13 +178,14 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     if not load_full_path.is_file():
         print(f"model checkpoint not found - {load_full_path} ")
         return False
-
-    model_checkpoint = torch.load(load_full_path)
-    # integrate into loaded model
-    model.load_state_dict(model_checkpoint)
-
     
-    print(f"model checkpoint loaded to rank0 cpu")
+    if rank == 0:
+        model_checkpoint = torch.load(load_full_path)
+        # integrate into loaded model
+        model.load_state_dict(model_checkpoint)
+        print(f"model checkpoint loaded to rank0 cpu")
+    
+    print(f"bypass on rank {rank}")
     return True
 
 
