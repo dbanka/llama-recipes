@@ -96,14 +96,14 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.use_fp16:
                     # if fp16 is enabled, use gradient scaler to handle gradient update
                     scaler.scale(loss).backward()
-                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
+                    if (global_step) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
                         scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad()
                 else:
                     # regular backpropagation when fp16 is not used
                     loss.backward()
-                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
+                    if (global_step) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
                         optimizer.step()
                         optimizer.zero_grad()
                 if train_config.enable_fsdp:
