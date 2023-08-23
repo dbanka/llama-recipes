@@ -103,7 +103,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 else:
                     # regular backpropagation when fp16 is not used
                     loss.backward()
-                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
                         optimizer.step()
                         optimizer.zero_grad()
                 if train_config.enable_fsdp:
