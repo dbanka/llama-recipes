@@ -88,10 +88,11 @@ def main(**kwargs):
     resume_epoch = 0
     resume_step = -1
     model_checkpoint_found = False
+    llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
         resume_epoch, resume_step = load_checkpoint_params(train_config)
-        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
         model = LlamaForCausalLM(llama_config)
         model_checkpoint_found = load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         
@@ -124,12 +125,17 @@ def main(**kwargs):
                 model = LlamaForCausalLM(llama_config)
 
     elif not model_checkpoint_found:
-        print("Loading model on CPU")
-        model = LlamaForCausalLM.from_pretrained(
-            train_config.model_path,
-            load_in_8bit=True if train_config.quantization else None,
-            device_map="auto" if train_config.quantization else None,
-        )
+        if rank == 0:
+            print("Loading model")
+
+            model = LlamaForCausalLM.from_pretrained(
+                train_config.model_path,
+                load_in_8bit=True if train_config.quantization else None,
+                device_map="auto" if train_config.quantization else None,
+            )
+        else:
+            model = LlamaForCausalLM(llama_config)
+
 
 
 
