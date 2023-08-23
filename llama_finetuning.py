@@ -127,10 +127,7 @@ def main(**kwargs):
 
     # else:
     model = LlamaForCausalLM.from_pretrained(
-        train_config.model_path,
-        load_in_8bit=True if train_config.quantization else None,
-        device_map="auto" if train_config.quantization else None,
-    )
+        train_config.model_path    )
 
 
 
@@ -304,25 +301,34 @@ def main(**kwargs):
         logging_steps=10,
         save_strategy="steps",
         save_steps=train_config.checkpoint_steps,
-        optim="adamw_anyprecision",
+        optim="adamw_apex_fused",
         optim_args="use_kahan_summation=False,momentum_dtype=bfloat16,variance_dtype=bfloat16",
         ddp_timeout=7200,
         fsdp=[FSDPOption.FULL_SHARD,FSDPOption.AUTO_WRAP],
-        gradient_accumulation_steps=gradient_accumulation_steps,
         save_total_limit=2,
         bf16_full_eval=True,
         resume_from_checkpoint=None,
         fsdp_transformer_layer_cls_to_wrap="LlamaDecoderLayer"
     )
-
+    #
+    # # Create Trainer instance
+    # trainer = LlamaTrainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=dataset_train,
+    #     eval_dataset=dataset_val,
+    #     data_collator=default_data_collator,
+    # )
     # Create Trainer instance
-    trainer = LlamaTrainer(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_val,
         data_collator=default_data_collator,
     )
+    print("starting trainer!!!")
+
     print("starting trainer!!!")
 
 
