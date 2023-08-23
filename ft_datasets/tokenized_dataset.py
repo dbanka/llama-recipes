@@ -12,6 +12,9 @@ class TokenisedDataset(StreamingDataset):
                  ) -> None:
         super().__init__(local=local, remote=remote, shuffle=shuffle, shuffle_seed=shuffle_seed,
                          shuffle_algo=shuffle_algo)
+    
+    def __len__(self):
+        return 500
 
 
     def __getitem__(self, idx: int) -> Any:
