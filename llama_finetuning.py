@@ -148,8 +148,8 @@ def main(**kwargs):
     print_model_size(model, train_config, rank if train_config.enable_fsdp else 0)
 
     # Convert the model to bfloat16 if fsdp and pure_bf16 is enabled
-    if train_config.enable_fsdp and fsdp_config.pure_bf16:
-        model.to(torch.bfloat16)
+    # if train_config.enable_fsdp and fsdp_config.pure_bf16:
+    #     model.to(torch.bfloat16)
 
     # Load the tokenizer and add special tokens
     tokenizer = LlamaTokenizer.from_pretrained(train_config.tokenizer_name)
