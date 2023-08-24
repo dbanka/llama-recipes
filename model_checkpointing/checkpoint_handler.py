@@ -325,7 +325,7 @@ def delete_file(file_name):
 
 
 def cleanup_checkpoints(cfg, ckpt_cfg):
-    print(f"cleaning up old checkpoints - {cfg[0]}")
+    print(f"cleaning up old checkpoints - {ckpt_cfg[0]}")
     folder_name = (
         cfg.dist_checkpoint_root_folder
         + "/"
