@@ -146,7 +146,7 @@ def main(**kwargs):
         using of Flash Attention or Xformer memory-efficient kernels 
         based on the hardware being used. This would speed up fine-tuning.
         """
-        print("**************Using fast**************")
+        print("**************Using fast kernels**************")
         try:
             from optimum.bettertransformer import BetterTransformer
             model = BetterTransformer.transform(model) 
@@ -247,6 +247,8 @@ def main(**kwargs):
             drop_last=True,
             collate_fn=default_data_collator,
         )
+    else:
+        eval_dataloader = None
 
     # Initialize the optimizer and learning rate scheduler
     if fsdp_config.pure_bf16 and fsdp_config.optimizer == "anyprecision":

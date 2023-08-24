@@ -83,6 +83,8 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
             continue
         epoch_start_time = time.perf_counter()
         epoch_iterator = train_dataloader
+        print(f"Instantiated new dataloader of len {len(epoch_iterator)}")
+        print(f"Skipping {resume_step + 1} batches in dataloader")
         epoch_iterator = skip_first_batches(epoch_iterator, resume_step + 1)
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
