@@ -32,6 +32,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from policies import bfSixteen, fpSixteen,bfSixteen_mixed, get_llama_wrapper
 
+# TB_LOG_DIR="/opt/ml/output/tensorboard"
+
 def set_tokenizer_params(tokenizer: LlamaTokenizer):
     tokenizer.pad_token_id = 0
     tokenizer.padding_side = "left"
@@ -73,9 +75,11 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     checkpoint_times = []
     results = {}
     best_val_loss = float("inf")
+    # tensorboard_callback = torch.utils.tensorboard.writer.SummaryWriter(log_dir = TB_LOG_DIR)
+    save_config = []
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
-            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
+            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step+1}")
             continue
         epoch_start_time = time.perf_counter()
         epoch_iterator = train_dataloader
@@ -96,14 +100,14 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.use_fp16:
                     # if fp16 is enabled, use gradient scaler to handle gradient update
                     scaler.scale(loss).backward()
-                    if (global_step) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
                         scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad()
                 else:
                     # regular backpropagation when fp16 is not used
                     loss.backward()
-                    if (global_step) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
                         optimizer.step()
                         optimizer.zero_grad()
                 if train_config.enable_fsdp:
@@ -118,28 +122,36 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
 
                         model_checkpointing.save_model_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step=global_step
+                            model, optimizer, rank, train_config, save_config, epoch=epoch, step=global_step
                         )
                     elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
                         print("=====================================================")
-
-                        model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                        if train_config.save_optimizer:
-                            model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
-                                                                                 optim=optimizer)
-                            print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                            print("=====================================================")
+                        # not implemented
+                        # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                        # if train_config.save_optimizer:
+                        #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
+                        #                                                          optim=optimizer)
+                        #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                        #     print("=====================================================")
 
                     if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step = global_step
+                            model, optimizer, rank, train_config, save_config, epoch = epoch, step = global_step
                         )
                         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")
                     if train_config.enable_fsdp:
                         dist.barrier()
+                    save_config.append({
+                        "epoch": epoch,
+                        "step": global_step
+                    })
+                    if len(save_config) > train_config.save_last:
+                        save_config = save_config[1:]
                     model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
+                    if rank == 0:
+                        print(f"checkpoints saved - {len(save_config)} - {save_config}")
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
@@ -187,12 +199,12 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                     print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
                     print("=====================================================")
-
-                    model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                    if train_config.save_optimizer:
-                        model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
-                        print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                        print("=====================================================")
+                    # not implemented
+                    # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                    # if train_config.save_optimizer:
+                    #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
+                    #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                    #     print("=====================================================")
 
                 if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(

@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from datetime import datetime
+import os
 import json
 import torch
 import time
@@ -119,11 +120,14 @@ def save_model_and_optimizer_sharded(model, rank, cfg,optim=None):
         print(
             f"Checkpoint Time = {t1-t0:.4f}\n"
         )
+
+
 def save_model_checkpoint(
     model,
     optimizer,
     rank,
     cfg,
+    save_cfg=[],
     epoch=1,
     step=-1
 ):
@@ -158,6 +162,11 @@ def save_model_checkpoint(
 
         
         print(f"model checkpoint saved for epoch {epoch} at {save_full_path}\n")
+
+        # cleaning up old checkpoints
+        if len(save_cfg) == cfg.save_last:
+            file_name = cfg.model_name + "-" + str(save_cfg[0]["epoch"]) +"-"+str(save_cfg[0]["step"]) + ".pt"
+            delete_file(file_name)
       
 
 
@@ -189,7 +198,7 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     return True
 
 
-def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
+def save_optimizer_checkpoint(model, optimizer, rank, cfg, save_cfg=[], epoch=1, step = -1):
     """save optimizer state via full state dict"""
 
    
@@ -227,6 +236,11 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
         torch.save(optim_state, opt_save_full_path)
 
         print(f"--> saved {opt_save_full_path} to disk")
+
+        # cleaning up old checkpoints
+        if len(save_cfg) == cfg.save_last:
+            file_name = "optimizer" + "-" + cfg.model_name + "-" + str(save_cfg[0]["epoch"])+"-"+ str(save_cfg[0]["step"]) + ".pt"
+            delete_file(file_name)
 
 
 def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
@@ -288,8 +302,8 @@ def save_checkpoint_params(cfg, epoch, step):
     save_dir.mkdir(parents=True, exist_ok=True)
     params_save_full_path = save_dir / "ckpt_params.json"
     params = {
-        "epoch": epoch,
-        "step": step,
+        "last_epoch": epoch,
+        "last_step": step,
     }
     print("Saving checkpoint params...")
     with open(params_save_full_path, "w") as f:
@@ -308,7 +322,17 @@ def load_checkpoint_params(cfg):
     
     with open(full_ckpt_params_path, "r") as f:
         params = json.load(f)
-    resume_epoch = params["epoch"]
-    resume_step = params["step"]
+    resume_epoch = params["last_epoch"]
+    resume_step = params["last_step"]
     print(f"Resuming training from epoch {resume_epoch} and step {resume_step + 1}")
     return resume_epoch, resume_step
+
+
+def delete_file(file_name):
+    try:
+        os.remove(file_name)
+        print(f"'{file_name}' has been deleted successfully.")
+    except FileNotFoundError:
+        print(f"'{file_name}' not found.")
+    except Exception as e:
+        print(f"An error occurred while deleting '{filename}': {e}")

@@ -38,4 +38,5 @@ class train_config:
     use_fast_kernels: bool = True, # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
     checkpoint_steps: int = 10
+    save_last: int = 2
     
