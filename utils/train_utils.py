@@ -150,7 +150,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     })
                     if rank == 0:
                         if len(ckpt_config) > train_config.save_last:
-                            model_checkpointing.cleanup_checkpoints(ckpt_config)
+                            model_checkpointing.cleanup_checkpoints(train_config, ckpt_config)
                             ckpt_config = ckpt_config[1:]
                         print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time

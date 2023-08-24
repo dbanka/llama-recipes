@@ -324,7 +324,7 @@ def delete_file(file_name):
         print(f"An error occurred while deleting '{file_name}': {e}")
 
 
-def cleanup_checkpoints(cfg):
+def cleanup_checkpoints(cfg, ckpt_cfg):
     print(f"cleaning up old checkpoints - {cfg[0]}")
     folder_name = (
         cfg.dist_checkpoint_root_folder
@@ -333,8 +333,8 @@ def cleanup_checkpoints(cfg):
         )
     save_dir = Path.cwd() / folder_name
     
-    model_save_name = cfg.model_name + "-" + str(cfg[0]["epoch"]) +"-"+str(cfg[0]["step"]) + ".pt"
-    opt_save_name = "optimizer" + "-" + cfg.model_name + "-" + str(cfg[0]["epoch"])+"-"+ str(cfg[0]["step"]) + ".pt"
+    model_save_name = cfg.model_name + "-" + str(ckpt_cfg[0]["epoch"]) +"-"+str(ckpt_cfg[0]["step"]) + ".pt"
+    opt_save_name = "optimizer" + "-" + cfg.model_name + "-" + str(ckpt_cfg[0]["epoch"])+"-"+ str(ckpt_cfg[0]["step"]) + ".pt"
             
     delete_file(save_dir/model_save_name)
     delete_file(save_dir/opt_save_name)
