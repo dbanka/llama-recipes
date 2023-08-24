@@ -178,11 +178,11 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         
         if train_config.enable_fsdp:
             # if rank==0:
-            print(f"After step - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
-            print(f"After step - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
-            print(f"After step - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
-            print(f"After step - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
-            print(f"After step - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
+            print(f"During training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+            print(f"During training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+            print(f"During training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+            print(f"During training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+            print(f"During training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
         else:
             print(f"Max CUDA memory allocated was {memtrace.peak} GB")
             print(f"Max CUDA memory reserved was {memtrace.max_reserved} GB")
