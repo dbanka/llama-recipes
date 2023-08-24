@@ -86,6 +86,13 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         epoch_iterator = skip_first_batches(epoch_iterator, resume_step + 1)
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
+            if train_config.enable_fsdp:
+                print(f"Before training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+                print(f"Before training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+                print(f"Before training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+                print(f"Before training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+                print(f"Before training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
+
             total_loss = 0.0
             for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}", initial=resume_step + 1)):
                 global_step = resume_step + step + 1
@@ -170,12 +177,12 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         train_loss.append(train_epoch_loss)
         
         if train_config.enable_fsdp:
-            if rank==0:
-                print(f"Max CUDA memory allocated was {memtrace.peak} GB")
-                print(f"Max CUDA memory reserved was {memtrace.max_reserved} GB")
-                print(f"Peak active CUDA memory was {memtrace.peak_active_gb} GB")
-                print(f"Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
-                print(f"CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
+            # if rank==0:
+            print(f"After step - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+            print(f"After step - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+            print(f"After step - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+            print(f"After step - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+            print(f"After step - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
         else:
             print(f"Max CUDA memory allocated was {memtrace.peak} GB")
             print(f"Max CUDA memory reserved was {memtrace.max_reserved} GB")
