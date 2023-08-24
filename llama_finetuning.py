@@ -125,7 +125,6 @@ def main(**kwargs):
                 model = LlamaForCausalLM(llama_config)
 
     elif not model_checkpoint_found:
-        # if rank == 0:
         print("Loading model")
 
         model = LlamaForCausalLM.from_pretrained(
@@ -133,8 +132,6 @@ def main(**kwargs):
             load_in_8bit=True if train_config.quantization else None,
             device_map="auto" if train_config.quantization else None,
             )
-        # else:
-        #     model = LlamaForCausalLM(llama_config)
 
 
 
