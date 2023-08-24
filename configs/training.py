@@ -31,12 +31,12 @@ class train_config:
     num_freeze_layers: int = 1
     quantization: bool = False
     one_gpu: bool = False
-    save_model: bool = True
+    save_model: bool = False
     dist_checkpoint_root_folder: str="/opt/ml" # will be used if using FSDP
     dist_checkpoint_folder: str="checkpoints" # will be used if using FSDP
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True, # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
-    checkpoint_steps: int = 10
+    checkpoint_steps: int = 4
     save_last: int = 2
     
