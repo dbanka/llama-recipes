@@ -27,6 +27,7 @@ from configs import fsdp_config, train_config
 from policies import AnyPrecisionAdamW
 
 from utils import fsdp_auto_wrap_policy
+
 from utils.config_utils import (
     update_config,
     generate_dataset_config,
@@ -49,21 +50,21 @@ from model_checkpointing.checkpoint_handler import (
     load_checkpoint_params,
 )
 
-print("Checking package versions...")
-# Read the requirements.txt file and extract package names and version constraints
-with open("requirements.txt") as f:
-    requirements = f.read().splitlines()
-
-# Iterate through the requirements and check installed versions
-for requirement in requirements:
-    try:
-        req = pkg_resources.Requirement.parse(requirement)
-        package = pkg_resources.get_distribution(req.project_name)
-        print(f"{package.project_name}: Installed version {package.version}")
-    except Exception:
-        print(f"{req.project_name}: Not installed or parsing error")
-
 def main(**kwargs):
+
+    print("Checking package versions...")
+    # Read the requirements.txt file and extract package names and version constraints
+    with open("requirements.txt") as f:
+        requirements = f.read().splitlines()
+
+    # Iterate through the requirements and check installed versions
+    for requirement in requirements:
+        try:
+            req = pkg_resources.Requirement.parse(requirement)
+            package = pkg_resources.get_distribution(req.project_name)
+            print(f"{package.project_name}: Installed version {package.version}")
+        except Exception:
+            print(f"{req.project_name}: Not installed or parsing error")
     # Update the configuration for the training and sharding process
     update_config((train_config, fsdp_config), **kwargs)
 
@@ -86,17 +87,22 @@ def main(**kwargs):
     # Calculate gradient accumulation steps
     gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
     resume_epoch = 0
-    resume_step = 0
+    resume_step = -1
+    model_checkpoint_found = False
+    llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
-        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        with torch.device("meta"):
-            model = LlamaForCausalLM(llama_config)
-        load_model_checkpoint(model,rank,train_config)
         resume_epoch, resume_step = load_checkpoint_params(train_config)
+        model = LlamaForCausalLM(llama_config)
+        model_checkpoint_found = load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
+        
+    if not model_checkpoint_found:
+        resume_epoch = 0
+        resume_step = -1
+        print("Model will be trained from the beginning")
 
-
-    elif train_config.enable_fsdp and train_config.low_cpu_fsdp:
+    if not model_checkpoint_found and train_config.enable_fsdp and train_config.low_cpu_fsdp:
         """
         for FSDP, we can save cpu memory by loading pretrained model on rank0 only.
         this avoids cpu oom when loading large models like llama 70B, in which case
@@ -115,16 +121,22 @@ def main(**kwargs):
                 device_map="auto" if train_config.quantization else None,
             )
         else:
-            llama_config = LlamaConfig.from_pretrained(train_config.model_path)
             with torch.device("meta"):
                 model = LlamaForCausalLM(llama_config)
 
-    else:
-        model = LlamaForCausalLM.from_pretrained(
-            train_config.model_path,
-            load_in_8bit=True if train_config.quantization else None,
-            device_map="auto" if train_config.quantization else None,
-        )
+    elif not model_checkpoint_found:
+        if rank == 0:
+            print("Loading model")
+
+            model = LlamaForCausalLM.from_pretrained(
+                train_config.model_path,
+                load_in_8bit=True if train_config.quantization else None,
+                device_map="auto" if train_config.quantization else None,
+                )
+        else: 
+            print("Loading model with config")
+            model = LlamaForCausalLM(llama_config)
+
 
 
 
@@ -251,10 +263,9 @@ def main(**kwargs):
             weight_decay=0.0,
         )
 
-    if train_config.resume_from_checkpoint:
-        sharded_optim_state_dict = load_optimizer_checkpoint(model, train_config, rank)
+    if model_checkpoint_found and train_config.resume_from_checkpoint:
+        sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         optimizer.load_state_dict(sharded_optim_state_dict)
-        print(f"loaded optimizer from checkpoint from path: {}",train_config.optimizer_model_filename )
 
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 

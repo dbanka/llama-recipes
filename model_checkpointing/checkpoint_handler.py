@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from datetime import datetime
+import os
 import json
 import torch
 import time
@@ -119,6 +120,8 @@ def save_model_and_optimizer_sharded(model, rank, cfg,optim=None):
         print(
             f"Checkpoint Time = {t1-t0:.4f}\n"
         )
+
+
 def save_model_checkpoint(
     model,
     optimizer,
@@ -147,7 +150,7 @@ def save_model_checkpoint(
         )
         save_dir = Path.cwd() / folder_name
         save_dir.mkdir(parents=True, exist_ok=True)
-        if step > 0:
+        if step >= 0:
             save_name = cfg.model_name + "-" + str(epoch) +"-"+str(step) + ".pt"
         else:
             save_name = cfg.model_name + "-" + str(epoch) + ".pt"
@@ -158,34 +161,33 @@ def save_model_checkpoint(
 
         
         print(f"model checkpoint saved for epoch {epoch} at {save_full_path}\n")
-      
 
-
-def load_model_checkpoint(model, rank, cfg):
+def load_model_checkpoint(model, rank, epoch, step, cfg):
     """load local checkpoint to rank0 cpu
     must be called * before * passing to FSDP"""
 
-    if rank != 0:
-        return
-
     # where is the checkpoint at...
-    full_state_dict_model_path = (
-        Path.cwd() / cfg.checkpoint_folder / cfg.checkpoint_model_filename
-    )
-    # is it present...
-    if not full_state_dict_model_path.is_file():
-        print(
-            f"model checkpoint {full_state_dict_model_path} not present. Returning..."
+    folder_name = (
+        cfg.dist_checkpoint_root_folder
+        + "/"
+        + cfg.dist_checkpoint_folder
         )
-        return
-
-
-    model_checkpoint = torch.load(full_state_dict_model_path)
-    # integrate into loaded model
-    model.load_state_dict(model_checkpoint)
-
+    load_dir = Path.cwd() / folder_name
+    file_name = cfg.model_name + "-" + str(epoch) +"-"+str(step) + ".pt"
+    load_full_path = load_dir / file_name
+    # is it present...
+    if not load_full_path.is_file():
+        print(f"model checkpoint not found - {load_full_path} ")
+        return False
     
-    print(f"model checkpoint loaded to rank0 cpu")
+    if rank == 0:
+        model_checkpoint = torch.load(load_full_path)
+        # integrate into loaded model
+        model.load_state_dict(model_checkpoint)
+        print(f"model checkpoint loaded to rank0 cpu")
+    else:
+        print(f"bypass on rank {rank}")
+    return True
 
 
 def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
@@ -210,14 +212,15 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
         save_dir = Path.cwd() / folder_name
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        if step>0:
+        if step >= 0:
             opt_save_name = (
                     "optimizer" + "-" + cfg.model_name + "-" + str(epoch)+"-"+ str(step) + ".pt"
             )
         else:
             opt_save_name = (
-                "optimizer" + "-" + cfg.model_name + "-" + str(epoch) + ".pt"
+                    "optimizer" + "-" + cfg.model_name + "-" + str(epoch)+ ".pt"
             )
+    
         opt_save_full_path = save_dir / opt_save_name
 
         print(f"--> saving optimizer state...")
@@ -226,24 +229,28 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
 
         print(f"--> saved {opt_save_full_path} to disk")
 
-
-def load_optimizer_checkpoint(model, cfg, rank):
+def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     """load an fsdp optimizer full_state checkpoint using scatter method
     this ensures only rank 0 loads the optimizer state dict and scatters to other ranks
     """
-    optimizer_checkpoint_path = (
-            Path.cwd() / cfg.checkpoint_folder / cfg.optimizer_model_filename
-    )
-
-    if not optimizer_checkpoint_path.is_file():
-        print(
-            f"warning - optimizer checkpoint not present {optimizer_checkpoint_path}. Returning. "
+    folder_name = (
+        cfg.dist_checkpoint_root_folder
+        + "/"
+        + cfg.dist_checkpoint_folder
         )
-        return
+    load_dir = Path.cwd() / folder_name
+    file_name = (
+            "optimizer" + "-" + cfg.model_name + "-" + str(epoch)+"-"+ str(step) + ".pt"
+    )
+    load_full_path = load_dir / file_name
+
+    if not load_full_path.is_file():
+        raise Exception(f"optimizer checkpoint not found {load_full_path}")
+        
 
     full_osd = None
     if rank == 0:
-        full_osd = torch.load(optimizer_checkpoint_path)
+        full_osd = torch.load(load_full_path)
 
     # called from all ranks, though only rank0 has a valid param for full_osd
     sharded_osd = FSDP.scatter_full_optim_state_dict(full_osd, model)
@@ -271,7 +278,7 @@ def load_sharded_model_single_gpu(model,model_path):
     print(f"Sharded state checkpoint loaded from {model_path}")
     return model
 
-def save_checkpoint_params(cfg, epoch, step, dataset_len):
+def save_checkpoint_params(cfg, epoch, step):
     folder_name = (
         cfg.dist_checkpoint_root_folder
         + "/"
@@ -281,25 +288,54 @@ def save_checkpoint_params(cfg, epoch, step, dataset_len):
     save_dir.mkdir(parents=True, exist_ok=True)
     params_save_full_path = save_dir / "ckpt_params.json"
     params = {
-        "epoch": epoch,
-        "step": step,
-        "dataset_len": dataset_len
+        "last_epoch": epoch,
+        "last_step": step,
     }
+    print("Saving checkpoint params...")
     with open(params_save_full_path, "w") as f:
         json.dump(params, f)
 
 
 def load_checkpoint_params(cfg):
+    resume_epoch = 0
+    resume_step = -1
     full_ckpt_params_path = (
         Path.cwd() / cfg.dist_checkpoint_root_folder / cfg.dist_checkpoint_folder / "ckpt_params.json"
     )
+    if not full_ckpt_params_path.is_file():
+        print(f"checkpoint params not found - {full_ckpt_params_path}")
+        return resume_epoch, resume_step
+    
     with open(full_ckpt_params_path, "r") as f:
         params = json.load(f)
-    resume_epoch = params["epoch"]
-    resume_step = params["step"]
-    if resume_step + 1 == params["dataset_len"]:
-        resume_epoch += 1
-        resume_step = 0
-    else:
-        resume_step += 1
+    resume_epoch = params["last_epoch"]
+    resume_step = params["last_step"]
+    print(f"Resuming training from epoch {resume_epoch} and step {resume_step + 1}")
     return resume_epoch, resume_step
+
+
+def delete_file(file_name):
+    try:
+        os.remove(file_name)
+        print(f"'{file_name}' has been deleted successfully.")
+    except FileNotFoundError:
+        print(f"'{file_name}' not found.")
+    except Exception as e:
+        print(f"An error occurred while deleting '{file_name}': {e}")
+
+
+def cleanup_checkpoints(cfg, ckpt_cfg):
+    print(f"cleaning up old checkpoints - {ckpt_cfg[0]}")
+    folder_name = (
+        cfg.dist_checkpoint_root_folder
+        + "/"
+        + cfg.dist_checkpoint_folder
+        )
+    save_dir = Path.cwd() / folder_name
+    
+    model_save_name = cfg.model_name + "-" + str(ckpt_cfg[0]["epoch"]) +"-"+str(ckpt_cfg[0]["step"]) + ".pt"
+    opt_save_name = "optimizer" + "-" + cfg.model_name + "-" + str(ckpt_cfg[0]["epoch"])+"-"+ str(ckpt_cfg[0]["step"]) + ".pt"
+            
+    delete_file(save_dir/model_save_name)
+    delete_file(save_dir/opt_save_name)
+    

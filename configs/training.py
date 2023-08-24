@@ -13,7 +13,7 @@ class train_config:
     low_cpu_fsdp: bool=False
     run_validation: bool=True
     batch_size_training: int=4
-    num_epochs: int=1
+    num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
     weight_decay: float=0.0
@@ -31,15 +31,12 @@ class train_config:
     num_freeze_layers: int = 1
     quantization: bool = False
     one_gpu: bool = False
-    save_model: bool = True
+    save_model: bool = False
     dist_checkpoint_root_folder: str="/opt/ml" # will be used if using FSDP
     dist_checkpoint_folder: str="checkpoints" # will be used if using FSDP
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True, # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
-    resume_from_checkpoint: bool = False
-    checkpoint_steps: int = 10
-    checkpoint_folder: str = "/opt/ml/checkpoints"
-    checkpoint_model_filename: str = "meta-llama-2-7b-0-50.pt"
-    optimizer_model_filename: str = "optimizer-meta-llama-2-7b-0-50.pt"
-
+    resume_from_checkpoint: bool = True
+    checkpoint_steps: int = 4
+    save_last: int = 2
     

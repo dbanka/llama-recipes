@@ -32,6 +32,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from policies import bfSixteen, fpSixteen,bfSixteen_mixed, get_llama_wrapper
 
+# TB_LOG_DIR="/opt/ml/output/tensorboard"
+
 def set_tokenizer_params(tokenizer: LlamaTokenizer):
     tokenizer.pad_token_id = 0
     tokenizer.padding_side = "left"
@@ -73,21 +75,27 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     checkpoint_times = []
     results = {}
     best_val_loss = float("inf")
+    # tensorboard_callback = torch.utils.tensorboard.writer.SummaryWriter(log_dir = TB_LOG_DIR)
+    ckpt_config = []
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
-            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step}")
+            print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step+1}")
             continue
         epoch_start_time = time.perf_counter()
         epoch_iterator = train_dataloader
-        global_step = resume_step 
-        if resume_step > 0:
-            epoch_iterator = skip_first_batches(epoch_iterator, resume_step)
-            resume_step = 0
+        epoch_iterator = skip_first_batches(epoch_iterator, resume_step + 1)
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
+            # if train_config.enable_fsdp:
+            #     print(f"Before training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+            #     print(f"Before training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+            #     print(f"Before training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+            #     print(f"Before training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+            #     print(f"Before training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
+
             total_loss = 0.0
-            for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}")):
-                global_step += step
+            for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}", initial=resume_step + 1)):
+                global_step = resume_step + step + 1
                 for key in batch.keys():
                     if train_config.enable_fsdp:
                         batch[key] = batch[key].to(local_rank)
@@ -115,38 +123,48 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 else:
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
-                if global_step > 0 and global_step % train_config.checkpoint_steps == 0:
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step, len(train_dataloader))
+                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or global_step == len(train_dataloader) - 1:
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
-
+                        print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
                         model_checkpointing.save_model_checkpoint(
                             model, optimizer, rank, train_config, epoch=epoch, step=global_step
                         )
                     elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
                         print("=====================================================")
-
-                        model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                        if train_config.save_optimizer:
-                            model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
-                                                                                 optim=optimizer)
-                            print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                            print("=====================================================")
+                        # not implemented
+                        # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                        # if train_config.save_optimizer:
+                        #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
+                        #                                                          optim=optimizer)
+                        #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                        #     print("=====================================================")
 
                     if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step = global_step
+                            model, optimizer, rank, train_config, epoch = epoch, step = global_step
                         )
                         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")
                     if train_config.enable_fsdp:
                         dist.barrier()
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
+                    ckpt_config.append({
+                        "epoch": epoch,
+                        "step": global_step
+                    })
+                    if rank == 0:
+                        if len(ckpt_config) > train_config.save_last:
+                            model_checkpointing.cleanup_checkpoints(train_config, ckpt_config)
+                            ckpt_config = ckpt_config[1:]
+                        print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
         epoch_times.append(epoch_end_time)    
+        resume_step = -1
         # Reducing total_loss across all devices if there's more than one CUDA device
         if torch.cuda.device_count() > 1 and train_config.enable_fsdp:
             dist.all_reduce(total_loss, op=dist.ReduceOp.SUM)
@@ -159,12 +177,12 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         train_loss.append(train_epoch_loss)
         
         if train_config.enable_fsdp:
-            if rank==0:
-                print(f"Max CUDA memory allocated was {memtrace.peak} GB")
-                print(f"Max CUDA memory reserved was {memtrace.max_reserved} GB")
-                print(f"Peak active CUDA memory was {memtrace.peak_active_gb} GB")
-                print(f"Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
-                print(f"CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
+            # if rank==0:
+            print(f"During training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+            print(f"During training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+            print(f"During training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+            print(f"During training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+            print(f"During training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
         else:
             print(f"Max CUDA memory allocated was {memtrace.peak} GB")
             print(f"Max CUDA memory reserved was {memtrace.max_reserved} GB")
@@ -182,19 +200,19 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.enable_fsdp:
                     dist.barrier()
                 if  fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
-
+                    print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
                     model_checkpointing.save_model_checkpoint(
                         model, optimizer, rank, train_config, epoch=epoch
                     )
                 elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                     print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
                     print("=====================================================")
-
-                    model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                    if train_config.save_optimizer:
-                        model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
-                        print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                        print("=====================================================")
+                    # not implemented
+                    # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                    # if train_config.save_optimizer:
+                    #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
+                    #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                    #     print("=====================================================")
 
                 if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(
