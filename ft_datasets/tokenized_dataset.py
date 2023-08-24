@@ -14,7 +14,7 @@ class TokenisedDataset(StreamingDataset):
                          shuffle_algo=shuffle_algo)
     
     def __len__(self):
-        return 500
+        return 105
 
 
     def __getitem__(self, idx: int) -> Any:
