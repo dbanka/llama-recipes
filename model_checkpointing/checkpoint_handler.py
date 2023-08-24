@@ -331,7 +331,7 @@ def cleanup_checkpoints(cfg):
         + "/"
         + cfg.dist_checkpoint_folder
         )
-        save_dir = Path.cwd() / folder_name
+    save_dir = Path.cwd() / folder_name
     
     model_save_name = cfg.model_name + "-" + str(cfg[0]["epoch"]) +"-"+str(cfg[0]["step"]) + ".pt"
     opt_save_name = "optimizer" + "-" + cfg.model_name + "-" + str(cfg[0]["epoch"])+"-"+ str(cfg[0]["step"]) + ".pt"
