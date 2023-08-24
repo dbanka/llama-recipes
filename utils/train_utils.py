@@ -76,7 +76,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     results = {}
     best_val_loss = float("inf")
     # tensorboard_callback = torch.utils.tensorboard.writer.SummaryWriter(log_dir = TB_LOG_DIR)
-    save_config = []
+    ckpt_config = []
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
             print(f"skipping epoch {epoch}...resuming from epoch {resume_epoch} and step {resume_step+1}")
@@ -122,7 +122,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
 
                         model_checkpointing.save_model_checkpoint(
-                            model, optimizer, rank, train_config, save_config, epoch=epoch, step=global_step
+                            model, optimizer, rank, train_config, epoch=epoch, step=global_step
                         )
                     elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
@@ -137,21 +137,22 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
 
                     if train_config.save_optimizer:
                         model_checkpointing.save_optimizer_checkpoint(
-                            model, optimizer, rank, train_config, save_config, epoch = epoch, step = global_step
+                            model, optimizer, rank, train_config, epoch = epoch, step = global_step
                         )
                         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")
                     if train_config.enable_fsdp:
                         dist.barrier()
-                    save_config.append({
+                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
+                    ckpt_config.append({
                         "epoch": epoch,
                         "step": global_step
                     })
-                    if len(save_config) > train_config.save_last:
-                        save_config = save_config[1:]
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
                     if rank == 0:
-                        print(f"checkpoints saved - {len(save_config)} - {save_config}")
+                        if len(ckpt_config) > train_config.save_last:
+                            model_checkpointing.cleanup_checkpoints(ckpt_config)
+                            ckpt_config = ckpt_config[1:]
+                        print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time

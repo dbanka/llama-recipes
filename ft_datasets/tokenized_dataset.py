@@ -12,16 +12,12 @@ class TokenisedDataset(StreamingDataset):
                  ) -> None:
         super().__init__(local=local, remote=remote, shuffle=shuffle, shuffle_seed=shuffle_seed,
                          shuffle_algo=shuffle_algo)
-    
-    def __len__(self):
-        return 45
-
 
     def __getitem__(self, idx: int) -> Any:
         obj = super().__getitem__(idx)
-        obj['input_ids'] = obj['input_ids'].tolist()
-        obj['attention_mask'] = obj['attention_mask'].tolist()
-        obj['labels'] = obj['labels'].tolist()
+        # obj['input_ids'] = obj['input_ids'].tolist()
+        # obj['attention_mask'] = obj['attention_mask'].tolist()
+        # obj['labels'] = obj['labels'].tolist()
         return obj
 
 

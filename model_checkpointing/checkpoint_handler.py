@@ -127,7 +127,6 @@ def save_model_checkpoint(
     optimizer,
     rank,
     cfg,
-    save_cfg=[],
     epoch=1,
     step=-1
 ):
@@ -163,13 +162,6 @@ def save_model_checkpoint(
         
         print(f"model checkpoint saved for epoch {epoch} at {save_full_path}\n")
 
-        # cleaning up old checkpoints
-        if len(save_cfg) == cfg.save_last:
-            file_name = cfg.model_name + "-" + str(save_cfg[0]["epoch"]) +"-"+str(save_cfg[0]["step"]) + ".pt"
-            delete_file(save_dir/file_name)
-      
-
-
 def load_model_checkpoint(model, rank, epoch, step, cfg):
     """load local checkpoint to rank0 cpu
     must be called * before * passing to FSDP"""
@@ -198,7 +190,7 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     return True
 
 
-def save_optimizer_checkpoint(model, optimizer, rank, cfg, save_cfg=[], epoch=1, step = -1):
+def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
     """save optimizer state via full state dict"""
 
    
@@ -236,12 +228,6 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, save_cfg=[], epoch=1,
         torch.save(optim_state, opt_save_full_path)
 
         print(f"--> saved {opt_save_full_path} to disk")
-
-        # cleaning up old checkpoints
-        if len(save_cfg) == cfg.save_last:
-            file_name = "optimizer" + "-" + cfg.model_name + "-" + str(save_cfg[0]["epoch"])+"-"+ str(save_cfg[0]["step"]) + ".pt"
-            delete_file(save_dir/file_name)
-
 
 def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
     """load an fsdp optimizer full_state checkpoint using scatter method
@@ -335,4 +321,21 @@ def delete_file(file_name):
     except FileNotFoundError:
         print(f"'{file_name}' not found.")
     except Exception as e:
-        print(f"An error occurred while deleting '{filename}': {e}")
+        print(f"An error occurred while deleting '{file_name}': {e}")
+
+
+def cleanup_checkpoints(cfg):
+    print(f"cleaning up old checkpoints - {cfg[0]}")
+    folder_name = (
+        cfg.dist_checkpoint_root_folder
+        + "/"
+        + cfg.dist_checkpoint_folder
+        )
+        save_dir = Path.cwd() / folder_name
+    
+    model_save_name = cfg.model_name + "-" + str(cfg[0]["epoch"]) +"-"+str(cfg[0]["step"]) + ".pt"
+    opt_save_name = "optimizer" + "-" + cfg.model_name + "-" + str(cfg[0]["epoch"])+"-"+ str(cfg[0]["step"]) + ".pt"
+            
+    delete_file(save_dir/model_save_name)
+    delete_file(save_dir/opt_save_name)
+    
