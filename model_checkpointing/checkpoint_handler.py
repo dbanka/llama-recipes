@@ -166,7 +166,7 @@ def save_model_checkpoint(
         # cleaning up old checkpoints
         if len(save_cfg) == cfg.save_last:
             file_name = cfg.model_name + "-" + str(save_cfg[0]["epoch"]) +"-"+str(save_cfg[0]["step"]) + ".pt"
-            delete_file(file_name)
+            delete_file(save_dir/file_name)
       
 
 
@@ -240,7 +240,7 @@ def save_optimizer_checkpoint(model, optimizer, rank, cfg, save_cfg=[], epoch=1,
         # cleaning up old checkpoints
         if len(save_cfg) == cfg.save_last:
             file_name = "optimizer" + "-" + cfg.model_name + "-" + str(save_cfg[0]["epoch"])+"-"+ str(save_cfg[0]["step"]) + ".pt"
-            delete_file(file_name)
+            delete_file(save_dir/file_name)
 
 
 def load_optimizer_checkpoint(model, rank, epoch, step, cfg):
