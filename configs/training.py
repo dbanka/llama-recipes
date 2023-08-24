@@ -12,8 +12,8 @@ class train_config:
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=True
-    batch_size_training: int=4
-    num_epochs: int=1
+    batch_size_training: int=16
+    num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
     weight_decay: float=0.0
@@ -23,7 +23,7 @@ class train_config:
     mixed_precision: bool=False
     val_batch_size: int=1
     dataset = "tokenized_dataset"
-    micro_batch_size: int=1
+    micro_batch_size: int=2
     peft_method: str = "lora" # None , llama_adapter, prefix
     use_peft: bool=False
     output_dir: str = "/opt/ml/model"
