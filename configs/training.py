@@ -11,7 +11,7 @@ class train_config:
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
-    run_validation: bool=True
+    run_validation: bool=False
     batch_size_training: int=4
     num_epochs: int=2
     num_workers_dataloader: int=1

@@ -146,6 +146,7 @@ def main(**kwargs):
         using of Flash Attention or Xformer memory-efficient kernels 
         based on the hardware being used. This would speed up fine-tuning.
         """
+        print("**************Using fast**************")
         try:
             from optimum.bettertransformer import BetterTransformer
             model = BetterTransformer.transform(model) 
