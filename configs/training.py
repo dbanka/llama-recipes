@@ -23,7 +23,7 @@ class train_config:
     mixed_precision: bool=False
     val_batch_size: int=1
     dataset = "tokenized_dataset"
-    micro_batch_size: int=2
+    micro_batch_size: int=1
     peft_method: str = "lora" # None , llama_adapter, prefix
     use_peft: bool=False
     output_dir: str = "/opt/ml/model"
