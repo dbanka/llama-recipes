@@ -173,22 +173,32 @@ def main(**kwargs):
             freeze_transformer_layers(train_config.num_freeze_layers)
 
         mixed_precision_policy, wrapping_policy = get_policies(fsdp_config, rank)
-
-        model = FSDP(
-            model,
-            auto_wrap_policy=  wrapping_policy,
-            mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
-            sharding_strategy=fsdp_config.sharding_strategy,
-            device_id=torch.cuda.current_device(),
-            limit_all_gathers=True,
-            sync_module_states=train_config.low_cpu_fsdp,
-            param_init_fn=lambda module: module.to_empty(device=torch.device("cuda"), recurse=False)
-            if train_config.low_cpu_fsdp and rank != 0 else None,
-        )
-        if fsdp_config.fsdp_activation_checkpointing:
-            policies.apply_fsdp_checkpointing(model)
+        
+        with MemoryTrace() as memtrace:  # track the memory usage
+            model = FSDP(
+                model,
+                auto_wrap_policy=  wrapping_policy,
+                mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
+                sharding_strategy=fsdp_config.sharding_strategy,
+                device_id=torch.cuda.current_device(),
+                limit_all_gathers=True,
+                sync_module_states=train_config.low_cpu_fsdp,
+                param_init_fn=lambda module: module.to_empty(device=torch.device("cuda"), recurse=False)
+                if train_config.low_cpu_fsdp and rank != 0 else None,
+            )
+            if fsdp_config.fsdp_activation_checkpointing:
+                policies.apply_fsdp_checkpointing(model)
+            print(f"During training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
+            print(f"During training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
+            print(f"During training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
+            print(f"During training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
+            print(f"During training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
     elif not train_config.quantization and not train_config.enable_fsdp:
         model.to("cuda")
+
+    ### gpu memory usage
+
+
 
     dataset_config = generate_dataset_config(train_config, kwargs)
 

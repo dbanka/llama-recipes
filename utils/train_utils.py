@@ -88,13 +88,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         epoch_iterator = skip_first_batches(epoch_iterator, resume_step + 1)
         with MemoryTrace() as memtrace:  # track the memory usage
             model.train()
-            # if train_config.enable_fsdp:
-            #     print(f"Before training - Rank - {rank} - Max CUDA memory allocated was {memtrace.peak} GB")
-            #     print(f"Before training - Rank - {rank} - Max CUDA memory reserved was {memtrace.max_reserved} GB")
-            #     print(f"Before training - Rank - {rank} - Peak active CUDA memory was {memtrace.peak_active_gb} GB")
-            #     print(f"Before training - Rank - {rank} - Cuda Malloc retires : {memtrace.cuda_malloc_retires}")
-            #     print(f"Before training - Rank - {rank} - CPU Total Peak Memory consumed during the train (max): {memtrace.cpu_peaked + memtrace.cpu_begin} GB")
-
             total_loss = 0.0
             for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}", initial=resume_step + 1)):
                 global_step = resume_step + step + 1
@@ -109,7 +102,8 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.use_fp16:
                     # if fp16 is enabled, use gradient scaler to handle gradient update
                     scaler.scale(loss).backward()
-                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
+                    if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader):
+                        print("Updating model weights using accumulated gradients....")
                         scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad()
@@ -117,6 +111,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     # regular backpropagation when fp16 is not used
                     loss.backward()
                     if (global_step + 1) % gradient_accumulation_steps == 0 or global_step == len(train_dataloader) - 1:
+                        print("Updating model weights using accumulated gradients....")
                         optimizer.step()
                         optimizer.zero_grad()
                 if train_config.enable_fsdp:
@@ -127,7 +122,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 checkpoint_start_time = time.perf_counter()
                 if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or global_step == len(train_dataloader) - 1:
                     if train_config.enable_fsdp:
-                        print("Waiting for all the processes to sync")
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
@@ -162,7 +156,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                             ckpt_config = ckpt_config[1:]
                         print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
                     if train_config.enable_fsdp:
-                        print("Waiting for all the processes to sync")
                         dist.barrier()
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
