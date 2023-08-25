@@ -11,8 +11,8 @@ class train_config:
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
-    run_validation: bool=False
-    batch_size_training: int=6
+    run_validation: bool=True
+    batch_size_training: int=5
     num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -23,7 +23,7 @@ class train_config:
     mixed_precision: bool=False
     val_batch_size: int=1
     dataset = "tokenized_dataset"
-    gradient_accumulation_steps: int=4
+    gradient_accumulation_steps: int=5
     peft_method: str = "lora" # None , llama_adapter, prefix
     use_peft: bool=False
     output_dir: str = "/opt/ml/model"
