@@ -85,7 +85,7 @@ def main(**kwargs):
         setup_environ_flags(rank)
 
     # Calculate gradient accumulation steps
-    gradient_accumulation_steps = train_config.batch_size_training // train_config.micro_batch_size
+    gradient_accumulation_steps = train_config.gradient_accumulation_steps
     resume_epoch = 0
     resume_step = -1
     model_checkpoint_found = False
