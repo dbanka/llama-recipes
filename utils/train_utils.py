@@ -127,6 +127,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 checkpoint_start_time = time.perf_counter()
                 if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or global_step == len(train_dataloader) - 1:
                     if train_config.enable_fsdp:
+                        print("Waiting for all the processes to sync")
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
                         print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
@@ -150,8 +151,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                         )
                         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")
-                    if train_config.enable_fsdp:
-                        dist.barrier()
                     model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
                     ckpt_config.append({
                         "epoch": epoch,
@@ -162,6 +161,9 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                             model_checkpointing.cleanup_checkpoints(train_config, ckpt_config)
                             ckpt_config = ckpt_config[1:]
                         print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
+                    if train_config.enable_fsdp:
+                        print("Waiting for all the processes to sync")
+                        dist.barrier()
                 checkpoint_end_time = time.perf_counter() - checkpoint_start_time
                 checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
@@ -174,7 +176,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         if train_config.enable_fsdp:
             train_epoch_loss = train_epoch_loss/world_size
         train_perplexity = torch.exp(train_epoch_loss)
-        
         train_prep.append(train_perplexity)
         train_loss.append(train_epoch_loss)
         
@@ -200,6 +201,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
             checkpoint_start_time = time.perf_counter()
             if train_config.save_model and eval_epoch_loss < best_val_loss:
                 if train_config.enable_fsdp:
+                    print("Waiting for all the processes to sync")
                     dist.barrier()
                 if  fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
                     print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
@@ -223,6 +225,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                         print(" Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
                         print("=====================================================")                     
                 if train_config.enable_fsdp:
+                    print("Waiting for all the processes to sync")
                     dist.barrier()
             checkpoint_end_time = time.perf_counter() - checkpoint_start_time
             checkpoint_times.append(checkpoint_end_time)
@@ -235,6 +238,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                     print(f"best eval loss on epoch {epoch} is {best_val_loss}")
             val_loss.append(best_val_loss)
             val_prep.append(eval_ppl)
+            print(f"Validation completed for epoch {epoch}")
         
         if train_config.enable_fsdp:
             if rank==0:
