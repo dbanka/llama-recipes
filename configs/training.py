@@ -12,7 +12,7 @@ class train_config:
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=False
-    batch_size_training: int= 12
+    batch_size_training: int= 10
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
