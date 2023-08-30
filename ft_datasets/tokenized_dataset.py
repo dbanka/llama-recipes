@@ -22,12 +22,12 @@ def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
             streams=create_stream_config(dataset_config, split),
             shuffle=True,
             shuffle_seed=42,
-            cache='100gb'
+            cache_limit='100gb'
         )
     else:
         dataset = StreamingDataset(
             streams=create_stream_config(dataset_config, split),
             shuffle=False,
-            cache='10gb'
+            cache_limit='10gb'
         )
     return dataset
