@@ -32,7 +32,7 @@ class alpaca_dataset:
 class tokenized_dataset:
     dataset: str = "tokenized_dataset"
     train_split: str = "train"
-    test_split: str = "val"
+    test_split: str = "test"
     data_path: str = "ft_datasets/tokenized_data"
     remote_data_path: str = "s3://716533421362-spx-data/phenom-llm-data/streaming-data/pup"
     input_length: int = 4096
