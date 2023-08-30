@@ -36,7 +36,7 @@ class tokenized_dataset:
     data_path: str = "ft_datasets/tokenized_data"
     remote_data_path: str = "s3://716533421362-spx-data/phenom-llm-data/streaming-data/pup"
     input_length: int = 4096
-    remote_streams: list = ['s3://716533421362-spx-data/phenom-llm-data/streaming-data/annotation-data',
+    remote_streams = ['s3://716533421362-spx-data/phenom-llm-data/streaming-data/annotation-data',
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/crm-profiles',
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/hiring-status-data',
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/idea-cand-data',
