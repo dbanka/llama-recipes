@@ -48,5 +48,6 @@ class tokenized_dataset:
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/resume-freetext',
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/resume-html',
         's3://716533421362-spx-data/phenom-llm-data/streaming-data/fitscore-data',
+        's3://716533421362-spx-data/phenom-llm-data/streaming-data/skill-title-mapping',
         # 's3://716533421362-spx-data/phenom-llm-data/streaming-data/job-parser-data',
         ]
