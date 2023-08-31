@@ -14,7 +14,7 @@ class train_config:
     run_validation: bool=False
     batch_size_training: int= 4
     num_epochs: int=1
-    num_workers_dataloader: int=4
+    num_workers_dataloader: int=1
     lr: float=1e-4
     weight_decay: float=0.0
     gamma: float= 0.85
