@@ -315,6 +315,56 @@ def evaluation(model,train_config, eval_dataloader, local_rank, tokenizer):
         
     return eval_ppl, eval_epoch_loss
 
+
+def evaluation_separate(model, train_config, eval_dataloader, local_rank, tokenizer):
+    """
+    Evaluates the model on the given dataloader
+
+    Args:
+        model: The model to evaluate
+        eval_dataloader: The dataloader containing the evaluation data
+        local_rank: The rank of the current node in a distributed setting
+        tokenizer: The tokenizer used to decode predictions
+
+    Returns: eval_ppl, eval_epoch_loss
+    """
+    model.eval()
+    eval_preds = []
+    eval_loss = 0.0  # Initialize evaluation loss
+    with MemoryTrace() as memtrace:
+        for step, batch in enumerate(tqdm(eval_dataloader, colour="green", desc="evaluating Epoch")):
+            for key in batch.keys():
+                batch[key] = batch[key].to('cuda:0')
+            # Ensure no gradients are computed for this scope to save memory
+            with torch.no_grad():
+                # Forward pass and compute loss
+                outputs = model(**batch)
+                loss = outputs.loss
+                eval_loss += loss.detach().float()
+            # Decode predictions and add to evaluation predictions list
+            preds = torch.argmax(outputs.logits, -1)
+            eval_preds.extend(
+                tokenizer.batch_decode(preds.detach().cpu().numpy(), skip_special_tokens=True)
+            )
+
+    # If there's more than one CUDA device, reduce evaluation loss across all devices
+    if torch.cuda.device_count() > 1 and train_config.enable_fsdp:
+        dist.all_reduce(eval_loss, op=dist.ReduceOp.SUM)
+
+    # Compute average loss and perplexity
+    eval_epoch_loss = eval_loss / len(eval_dataloader)
+    eval_ppl = torch.exp(eval_epoch_loss)
+
+    # Print evaluation metrics
+    if train_config.enable_fsdp:
+        if local_rank == 0:
+            print(f" {eval_ppl=} {eval_epoch_loss=}")
+    else:
+        print(f" {eval_ppl=} {eval_epoch_loss=}")
+
+    return eval_ppl, eval_epoch_loss
+
+
 def freeze_transformer_layers(model, num_layer):
    for i, layer in enumerate(model.model.layers):
             if i < num_layer:
