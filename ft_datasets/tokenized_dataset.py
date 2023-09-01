@@ -26,17 +26,10 @@ def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
             cache_limit='100gb'
         )
     else:
-        # dataset = StreamingDataset(
-        #     local=f"{dataset_config.data_path}/{split}",
-        #     remote=f"{dataset_config.remote_data_path}/combined-{split}-4096-data-stream",
-        #     shuffle=False,
-        #     cache_limit='1gb'
-        # )
         dataset = StreamingDataset(
             local=f"{dataset_config.data_path}/{split}",
-            remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
-            shuffle=True,
-            shuffle_seed=42,
-            cache_limit='10gb'
+            remote=f"{dataset_config.remote_data_path}/combined-{split}-4096-data-stream",
+            shuffle=False,
+            cache_limit='1gb'
         )
     return dataset
