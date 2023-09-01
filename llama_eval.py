@@ -52,7 +52,7 @@ from model_checkpointing.checkpoint_handler import (
 )
 
 def main(**kwargs):
-
+    rank = 0
     print("Checking package versions...")
     # Read the requirements.txt file and extract package names and version constraints
     with open("requirements.txt") as f:
