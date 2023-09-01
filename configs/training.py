@@ -39,4 +39,5 @@ class train_config:
     resume_from_checkpoint: bool = True
     checkpoint_steps: int = 1000
     save_last: int = 2
+    tb_log_dir: str = "/opt/ml/output/tensorboard/"
     

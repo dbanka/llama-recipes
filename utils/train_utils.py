@@ -18,6 +18,7 @@ import torch.nn as nn
 import bitsandbytes as bnb
 """
 from torch.nn import functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 from transformers import LlamaForCausalLM, LlamaTokenizer
 from torch.distributed.fsdp import StateDictType
@@ -32,7 +33,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from policies import bfSixteen, fpSixteen,bfSixteen_mixed, get_llama_wrapper
 
-# TB_LOG_DIR="/opt/ml/output/tensorboard"
 
 def set_tokenizer_params(tokenizer: LlamaTokenizer):
     tokenizer.pad_token_id = 0
@@ -67,6 +67,9 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         scaler = torch.cuda.amp.GradScaler() 
     if train_config.enable_fsdp:
         world_size = int(os.environ["WORLD_SIZE"]) 
+
+    tb_writer = SummaryWriter(train_config.tb_log_dir)
+    
     train_prep = []
     train_loss = []
     val_prep = []
@@ -75,7 +78,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     checkpoint_times = []
     results = {}
     best_val_loss = float("inf")
-    # tensorboard_callback = torch.utils.tensorboard.writer.SummaryWriter(log_dir = TB_LOG_DIR)
     ckpt_config = []
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
@@ -117,6 +119,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.enable_fsdp:
                     if rank==0:       
                         print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
+                        tb_writer.add_scalar('training loss', loss.detach().float(), global_step, epoch)
                 else:
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
