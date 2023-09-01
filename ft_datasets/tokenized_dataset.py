@@ -18,6 +18,7 @@ def create_stream_config(dataset_config, split):
 def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
     # Create streaming dataset
     if split == "train":
+        split = "test"
         dataset = StreamingDataset(
             local=f"{dataset_config.data_path}/{split}",
             remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
