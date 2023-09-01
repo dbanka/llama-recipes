@@ -9,10 +9,10 @@ class train_config:
     model_name: str="meta-llama-2-7b"
     model_path: str="/opt/ml/input/data/model"
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
-    enable_fsdp: bool=True
+    enable_fsdp: bool=False
     low_cpu_fsdp: bool=False
-    run_validation: bool=False
-    batch_size_training: int= 4
+    run_validation: bool=True
+    batch_size_training: int= 6
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
