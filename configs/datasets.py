@@ -34,6 +34,6 @@ class tokenized_dataset:
     train_split: str = "train"
     test_split: str = "test"
     data_path: str = "ft_datasets/tokenized_data"
-    remote_data_path: str = "s3://716533421362-spx-data/phenom-llm-data"
+    remote_data_path: str = "s3://716533421362-spx-data/phenom-llm-data/streaming-data"
     input_length: int = 4096
     
