@@ -18,6 +18,7 @@ import torch.nn as nn
 import bitsandbytes as bnb
 """
 from torch.nn import functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 from transformers import LlamaForCausalLM, LlamaTokenizer
 from torch.distributed.fsdp import StateDictType
@@ -32,7 +33,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from policies import bfSixteen, fpSixteen,bfSixteen_mixed, get_llama_wrapper
 
-# TB_LOG_DIR="/opt/ml/output/tensorboard"
 
 def set_tokenizer_params(tokenizer: LlamaTokenizer):
     tokenizer.pad_token_id = 0
@@ -67,6 +67,9 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
         scaler = torch.cuda.amp.GradScaler() 
     if train_config.enable_fsdp:
         world_size = int(os.environ["WORLD_SIZE"]) 
+
+    tb_writer = SummaryWriter(train_config.tb_log_dir)
+
     train_prep = []
     train_loss = []
     val_prep = []
@@ -75,7 +78,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     checkpoint_times = []
     results = {}
     best_val_loss = float("inf")
-    # tensorboard_callback = torch.utils.tensorboard.writer.SummaryWriter(log_dir = TB_LOG_DIR)
     ckpt_config = []
     for epoch in range(train_config.num_epochs):
         if epoch < resume_epoch:
@@ -117,10 +119,11 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.enable_fsdp:
                     if rank==0:       
                         print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
+                        tb_writer.add_scalar('training loss', loss.detach().float(), global_step, epoch)
                 else:
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
-                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or global_step == len(train_dataloader) - 1:
+                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or (len(train_dataloader) - global_step) <= 1:
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
@@ -257,7 +260,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     #saving the training params including fsdp setting for reference.
     if train_config.enable_fsdp and not train_config.use_peft:
         save_train_params(train_config, fsdp_config, rank)
-        
+    tb_writer.flush()
     return results
 
 def evaluation(model,train_config, eval_dataloader, local_rank, tokenizer):
@@ -314,53 +317,6 @@ def evaluation(model,train_config, eval_dataloader, local_rank, tokenizer):
         print(f" {eval_ppl=} {eval_epoch_loss=}")
         
     return eval_ppl, eval_epoch_loss
-
-
-def evaluation_separate(model, train_config, eval_dataloader, local_rank, tokenizer):
-    """
-    Evaluates the model on the given dataloader
-
-    Args:
-        model: The model to evaluate
-        eval_dataloader: The dataloader containing the evaluation data
-        local_rank: The rank of the current node in a distributed setting
-        tokenizer: The tokenizer used to decode predictions
-
-    Returns: eval_ppl, eval_epoch_loss
-    """
-    model.eval()
-    eval_preds = []
-    eval_loss = 0.0  # Initialize evaluation loss
-    with MemoryTrace() as memtrace:
-        for step, batch in enumerate(tqdm(eval_dataloader, colour="green", desc="evaluating Epoch")):
-            for key in batch.keys():
-                batch[key] = batch[key].to('cuda:0')
-            # Ensure no gradients are computed for this scope to save memory
-            with torch.no_grad():
-                # Forward pass and compute loss
-                outputs = model(**batch)
-                loss = outputs.loss
-                eval_loss += loss.detach().float()
-            # Decode predictions and add to evaluation predictions list
-            preds = torch.argmax(outputs.logits, -1)
-            eval_preds.extend(
-                tokenizer.batch_decode(preds.detach().cpu().numpy(), skip_special_tokens=True)
-            )
-
-    # If there's more than one CUDA device, reduce evaluation loss across all devices
-    if torch.cuda.device_count() > 1 and train_config.enable_fsdp:
-        dist.all_reduce(eval_loss, op=dist.ReduceOp.SUM)
-
-    # Compute average loss and perplexity
-    eval_epoch_loss = eval_loss / len(eval_dataloader)
-    eval_ppl = torch.exp(eval_epoch_loss)
-
-    # Print evaluation metrics
-
-    print(f" {eval_ppl=} {eval_epoch_loss=}")
-
-    return eval_ppl, eval_epoch_loss
-
 
 def freeze_transformer_layers(model, num_layer):
    for i, layer in enumerate(model.model.layers):

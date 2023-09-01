@@ -9,10 +9,10 @@ class train_config:
     model_name: str="meta-llama-2-7b"
     model_path: str="/opt/ml/input/data/model"
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
-    enable_fsdp: bool=False
+    enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=True
-    batch_size_training: int= 2
+    batch_size_training: int = 1
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -39,4 +39,4 @@ class train_config:
     resume_from_checkpoint: bool = True
     checkpoint_steps: int = 1000
     save_last: int = 2
-    
+    tb_log_dir: str = "/opt/ml/output/tensorboard/"
