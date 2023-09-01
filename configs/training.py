@@ -12,7 +12,7 @@ class train_config:
     enable_fsdp: bool=False
     low_cpu_fsdp: bool=False
     run_validation: bool=True
-    batch_size_training: int= 6
+    batch_size_training: int= 2
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -21,7 +21,7 @@ class train_config:
     seed: int=42
     use_fp16: bool=False
     mixed_precision: bool=False
-    val_batch_size: int=1
+    val_batch_size: int=2
     dataset = "tokenized_dataset"
     gradient_accumulation_steps: int=6
     peft_method: str = "lora" # None , llama_adapter, prefix

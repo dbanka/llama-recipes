@@ -105,7 +105,7 @@ def main(**kwargs):
             }
         )
 
-    model.to("cuda")
+    # model.to("cuda")
 
     ### gpu memory usage
 
