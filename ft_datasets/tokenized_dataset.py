@@ -18,11 +18,9 @@ def create_stream_config(dataset_config, split):
 def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
     # Create streaming dataset
     if split == "train":
-        s3_path = "s3://716533421362-spx-data/phenom-llm-data/streaming-data/annotation-data/train/"
         dataset = StreamingDataset(
             local=f"{dataset_config.data_path}/{split}",
-            remote=s3_path,
-            # remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
+            remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
             shuffle=True,
             shuffle_seed=42,
             cache_limit='100gb'
