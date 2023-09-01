@@ -356,11 +356,8 @@ def evaluation_separate(model, train_config, eval_dataloader, local_rank, tokeni
     eval_ppl = torch.exp(eval_epoch_loss)
 
     # Print evaluation metrics
-    if train_config.enable_fsdp:
-        if local_rank == 0:
-            print(f" {eval_ppl=} {eval_epoch_loss=}")
-    else:
-        print(f" {eval_ppl=} {eval_epoch_loss=}")
+
+    print(f" {eval_ppl=} {eval_epoch_loss=}")
 
     return eval_ppl, eval_epoch_loss
 
