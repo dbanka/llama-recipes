@@ -260,7 +260,6 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
     #saving the training params including fsdp setting for reference.
     if train_config.enable_fsdp and not train_config.use_peft:
         save_train_params(train_config, fsdp_config, rank)
-    tb_writer.flush()
     return results
 
 def evaluation(model,train_config, eval_dataloader, local_rank, tokenizer):
