@@ -28,7 +28,7 @@ def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
     else:
         dataset = StreamingDataset(
             local=f"{dataset_config.data_path}/{split}",
-            remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
+            remote=f"{dataset_config.remote_data_path}/combined-{split}-4096-data-stream",
             shuffle=False,
             cache_limit='1gb'
         )
