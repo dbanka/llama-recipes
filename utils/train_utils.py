@@ -123,7 +123,7 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 else:
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
-                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or global_step == len(train_dataloader) - 1:
+                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or (len(train_dataloader) - global_step) <= 1:
                     if train_config.enable_fsdp:
                         dist.barrier()
                     if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
