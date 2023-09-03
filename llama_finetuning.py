@@ -90,11 +90,11 @@ def main(**kwargs):
     resume_epoch = 0
     resume_step = -1
     model_checkpoint_found = False
-    llama_config = LlamaConfig.from_pretrained(train_config.model_path)
 
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
         resume_epoch, resume_step = load_checkpoint_params(train_config)
+        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
         model = LlamaForCausalLM(llama_config)
         model_checkpoint_found = load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         
@@ -122,21 +122,19 @@ def main(**kwargs):
                 device_map="auto" if train_config.quantization else None,
             )
         else:
+            llama_config = LlamaConfig.from_pretrained(train_config.model_path)
             with torch.device("meta"):
                 model = LlamaForCausalLM(llama_config)
 
     elif not model_checkpoint_found:
-        if rank == 0:
-            print("Loading model")
+        print("Loading model")
 
-            model = LlamaForCausalLM.from_pretrained(
-                train_config.model_path,
-                load_in_8bit=True if train_config.quantization else None,
-                device_map="auto" if train_config.quantization else None,
-                )
-        else: 
-            print("Loading model with config")
-            model = LlamaForCausalLM(llama_config)
+        model = LlamaForCausalLM.from_pretrained(
+            train_config.model_path,
+            load_in_8bit=True if train_config.quantization else None,
+            device_map="auto" if train_config.quantization else None,
+        )
+
 
 
 
@@ -171,7 +169,7 @@ def main(**kwargs):
     if train_config.enable_fsdp:
         if train_config.freeze_layers:
 
-            freeze_transformer_layers(train_config.num_freeze_layers)
+            freeze_transformer_layers(model,train_config.num_freeze_layers)
 
         mixed_precision_policy, wrapping_policy = get_policies(fsdp_config, rank)
         
