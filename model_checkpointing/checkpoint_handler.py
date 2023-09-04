@@ -180,13 +180,11 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
         print(f"model checkpoint not found - {load_full_path} ")
         return False
     
-    if rank == 0:
-        model_checkpoint = torch.load(load_full_path)
+    model_checkpoint = torch.load(load_full_path)
         # integrate into loaded model
-        model.load_state_dict(model_checkpoint)
-        print(f"model checkpoint loaded to rank0 cpu")
-    else:
-        print(f"bypass on rank {rank}")
+    model.load_state_dict(model_checkpoint)
+    print(f"model checkpoint loaded to rank0 cpu")
+
     return True
 
 
