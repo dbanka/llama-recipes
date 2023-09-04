@@ -23,7 +23,7 @@ class train_config:
     mixed_precision: bool=False
     val_batch_size: int=1
     dataset = "tokenized_dataset"
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int = 4
     peft_method: str = "lora" # None , llama_adapter, prefix
     use_peft: bool=False
     output_dir: str = "/opt/ml/model"
@@ -37,6 +37,6 @@ class train_config:
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
-    checkpoint_steps: int = 100
+    checkpoint_steps: int = 200
     save_last: int = 2
     tb_log_dir: str = "/opt/ml/output/tensorboard/"
