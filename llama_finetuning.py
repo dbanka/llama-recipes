@@ -78,6 +78,9 @@ def main(**kwargs):
         # torchrun specific
         local_rank = int(os.environ["LOCAL_RANK"])
         rank = int(os.environ["RANK"])
+        print("***************************************************************")
+        print(f"Rank: {rank}")
+        print("----------------------------------------------------------------")
         world_size = int(os.environ["WORLD_SIZE"])
 
     if torch.distributed.is_initialized():
