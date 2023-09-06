@@ -9,10 +9,11 @@ class train_config:
     model_name: str="meta-llama-2-7b"
     model_path: str="/opt/ml/input/data/model"
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
+    model_state_dict: str="/opt/ml/input/data/model_state_dict"
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=False
-    batch_size_training: int= 6
+    batch_size_training: int= 4
     num_epochs: int=1
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -37,6 +38,6 @@ class train_config:
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
-    checkpoint_steps: int = 90
+    checkpoint_steps: int =50
     save_last: int = 2
     tb_log_dir: str = "/opt/ml/output/tensorboard/"

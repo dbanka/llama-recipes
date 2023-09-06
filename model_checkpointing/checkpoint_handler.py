@@ -187,6 +187,16 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
     return True
 
 
+def load_model_from_state_dict(model,rank, model_state_dict ):
+    """load local checkpoint to rank0 cpu
+    must be called * before * passing to FSDP"""
+    model_checkpoint = torch.load(model_state_dict)
+    # integrate into loaded model
+    model.load_state_dict(model_checkpoint)
+    print(f"model state dict loaded on rank {rank}")
+
+
+
 def save_optimizer_checkpoint(model, optimizer, rank, cfg, epoch=1, step = -1):
     """save optimizer state via full state dict"""
 

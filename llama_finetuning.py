@@ -49,6 +49,7 @@ from model_checkpointing.checkpoint_handler import (
     load_model_checkpoint,
     load_optimizer_checkpoint,
     load_checkpoint_params,
+    load_model_from_state_dict
 )
 
 def main(**kwargs):
@@ -132,15 +133,14 @@ def main(**kwargs):
     elif not model_checkpoint_found:
         print("Loading model")
 
-        model = LlamaForCausalLM.from_pretrained(
-            train_config.model_path,
-            load_in_8bit=True if train_config.quantization else None,
-            device_map="auto" if train_config.quantization else None,
-        )
-
-
-
-
+        # model = LlamaForCausalLM.from_pretrained(
+        #     train_config.model_path,
+        #     load_in_8bit=True if train_config.quantization else None,
+        #     device_map="auto" if train_config.quantization else None,
+        # )
+        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+        model = LlamaForCausalLM(llama_config)
+        load_model_from_state_dict(model,rank, train_config.model_state_dict )
 
     if train_config.enable_fsdp and train_config.use_fast_kernels:
         """
@@ -279,9 +279,9 @@ def main(**kwargs):
             weight_decay=0.0,
         )
 
-    if model_checkpoint_found and train_config.resume_from_checkpoint:
-        sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
-        optimizer.load_state_dict(sharded_optim_state_dict)
+    # if model_checkpoint_found and train_config.resume_from_checkpoint:
+    #     sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
+    #     optimizer.load_state_dict(sharded_optim_state_dict)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 
