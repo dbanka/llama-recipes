@@ -18,12 +18,13 @@ def create_stream_config(dataset_config, split):
 def get_tokenized_dataset(dataset_config, tokenizer, split="train"):
     # Create streaming dataset
     if split == "train":
+        remote_path = "s3://716533421362-spx-data/phenom-llm-data/streaming-data/alpaca-gpt4-hr"
         dataset = StreamingDataset(
             local=f"{dataset_config.data_path}/{split}",
-            remote=f"{dataset_config.remote_data_path}/combined-{split}-data-stream",
+            remote=remote_path,
             shuffle=True,
             shuffle_seed=42,
-            cache_limit='200gb'
+            cache_limit='100gb'
         )
     else:
         dataset = StreamingDataset(
