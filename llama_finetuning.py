@@ -97,8 +97,8 @@ def main(**kwargs):
     # Load the pre-trained model and setup its configuration
     if train_config.resume_from_checkpoint:
         resume_epoch, resume_step = load_checkpoint_params(train_config)
-        # llama_config = LlamaConfig.from_pretrained(train_config.model_path)
-        model = LlamaForCausalLM.from_pretrained(train_config.model_path)
+        llama_config = LlamaConfig.from_pretrained(train_config.model_path)
+        model = LlamaForCausalLM(llama_config)
         model_checkpoint_found = load_model_checkpoint(model, rank, resume_epoch, resume_step, train_config)
         
     if not model_checkpoint_found:
