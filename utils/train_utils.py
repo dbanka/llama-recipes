@@ -93,6 +93,9 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
             total_loss = 0.0
             for step, batch in enumerate(tqdm(epoch_iterator, colour="blue", desc=f"Training Epoch{epoch}", initial=resume_step + 1)):
                 global_step = resume_step + step + 1
+                if global_step == 12698 or global_step == 12699:
+                    print(f"skipping step {global_step}")
+                    continue
                 print(f"Global step: {global_step}")
                 for key in batch.keys():
                     if train_config.enable_fsdp:
