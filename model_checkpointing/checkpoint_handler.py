@@ -190,7 +190,7 @@ def load_model_checkpoint(model, rank, epoch, step, cfg):
 def load_model_from_state_dict(model,rank, model_state_dict ):
     """load local checkpoint to rank0 cpu
     must be called * before * passing to FSDP"""
-    model_checkpoint = torch.load(model_state_dict)
+    model_checkpoint = torch.load(model_state_dict+"/pytorch_model.bin")
     # integrate into loaded model
     model.load_state_dict(model_checkpoint)
     print(f"model state dict loaded on rank {rank}")
