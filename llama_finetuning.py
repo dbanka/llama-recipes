@@ -279,9 +279,9 @@ def main(**kwargs):
             weight_decay=0.0,
         )
 
-    # if model_checkpoint_found and train_config.resume_from_checkpoint:
-    #     sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
-    #     optimizer.load_state_dict(sharded_optim_state_dict)
+    if model_checkpoint_found and train_config.resume_from_checkpoint:
+        sharded_optim_state_dict = load_optimizer_checkpoint(model, rank, resume_epoch, resume_step, train_config)
+        optimizer.load_state_dict(sharded_optim_state_dict)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=train_config.gamma)
 

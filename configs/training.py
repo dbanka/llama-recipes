@@ -14,7 +14,7 @@ class train_config:
     low_cpu_fsdp: bool=False
     run_validation: bool=False
     batch_size_training: int= 4
-    num_epochs: int=1
+    num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
     weight_decay: float=0.0
