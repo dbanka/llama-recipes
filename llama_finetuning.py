@@ -26,6 +26,8 @@ from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 import policies
 from configs import fsdp_config, train_config
 from policies import AnyPrecisionAdamW
+from datasets import load_from_disk
+
 
 from utils import fsdp_auto_wrap_policy
 
@@ -202,14 +204,16 @@ def main(**kwargs):
 
 
 
-    dataset_config = generate_dataset_config(train_config, kwargs)
+    # dataset_config = generate_dataset_config(train_config, kwargs)
+    #
+    #  # Load and preprocess the dataset for training and validation
+    # dataset_train = get_preprocessed_dataset(
+    #     tokenizer,
+    #     dataset_config,
+    #     split="train",
+    # )
 
-     # Load and preprocess the dataset for training and validation
-    dataset_train = get_preprocessed_dataset(
-        tokenizer,
-        dataset_config,
-        split="train",
-    )
+    dataset_train =  load_from_disk(train_config.dataset_path)
 
     if not train_config.enable_fsdp or rank == 0:
         print(f"--> Training Set Length = {len(dataset_train)}")
@@ -225,19 +229,19 @@ def main(**kwargs):
 
     train_sampler = None
     val_sampler = None
-    # if train_config.enable_fsdp:
-    #     train_sampler = DistributedSampler(
-    #         dataset_train,
-    #         rank=dist.get_rank(),
-    #         num_replicas=dist.get_world_size(),
-    #         shuffle=True,
-    #     )
-    #     if train_config.run_validation:
-    #         val_sampler = DistributedSampler(
-    #             dataset_val,
-    #             rank=dist.get_rank(),
-    #             num_replicas=dist.get_world_size(),
-    #         )
+    if train_config.enable_fsdp:
+        train_sampler = DistributedSampler(
+            dataset_train,
+            rank=dist.get_rank(),
+            num_replicas=dist.get_world_size(),
+            shuffle=True,
+        )
+        if train_config.run_validation:
+            val_sampler = DistributedSampler(
+                dataset_val,
+                rank=dist.get_rank(),
+                num_replicas=dist.get_world_size(),
+            )
 
     # Create DataLoaders for the training and validation dataset
     train_dataloader = StreamingDataLoader(

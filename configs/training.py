@@ -10,6 +10,7 @@ class train_config:
     model_path: str="/opt/ml/input/data/model"
     tokenizer_name: str="/opt/ml/input/data/tokenizer"
     model_state_dict: str="/opt/ml/input/data/model_state_dict"
+    dataset_path:str="/opt/ml/input/data/dataset_path"
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=False
