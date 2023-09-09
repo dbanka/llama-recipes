@@ -133,45 +133,43 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 else:
                     print(f"\n step {global_step} is completed and loss is {loss.detach().float()}")
                 checkpoint_start_time = time.perf_counter()
-                if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or (len(train_dataloader) - global_step) <= 1:
-                    if train_config.enable_fsdp:
-                        dist.barrier()
-                    if fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
-                        print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
-                        model_checkpointing.save_model_checkpoint(
-                            model, optimizer, rank, train_config, epoch=epoch, step=global_step
-                        )
-                    elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
-                        print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
-                        print("=====================================================")
-                        # not implemented
-                        # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                        # if train_config.save_optimizer:
-                        #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config,
-                        #                                                          optim=optimizer)
-                        #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                        #     print("=====================================================")
-
-                    if train_config.save_optimizer:
-                        model_checkpointing.save_optimizer_checkpoint(
-                            model, optimizer, rank, train_config, epoch = epoch, step = global_step
-                        )
-                        print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
-                        print("=====================================================")
-                    model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
-                    ckpt_config.append({
-                        "epoch": epoch,
-                        "step": global_step
-                    })
-                    if rank == 0:
-                        if len(ckpt_config) > train_config.save_last:
-                            model_checkpointing.cleanup_checkpoints(train_config, ckpt_config)
-                            ckpt_config = ckpt_config[1:]
-                        print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
-                    if train_config.enable_fsdp:
-                        dist.barrier()
-                checkpoint_end_time = time.perf_counter() - checkpoint_start_time
-                checkpoint_times.append(checkpoint_end_time)
+                # if (global_step > 0 and global_step % train_config.checkpoint_steps == 0) or (len(train_dataloader) - global_step) <= 1:
+                #     if train_config.enable_fsdp:
+                #         dist.barrier()
+                #
+                #     if train_config.use_peft:
+                #         if train_config.enable_fsdp:
+                #             if rank == 0:
+                #                 print(f"we are about to save the PEFT modules")
+                #         else:
+                #             print(f"we are about to save the PEFT modules")
+                #         model.save_pretrained(train_config.output_dir)
+                #         if train_config.enable_fsdp:
+                #             if rank == 0:
+                #                 print(f"PEFT modules are saved in {train_config.output_dir} directory")
+                #         else:
+                #             print(f"PEFT modules are saved in {train_config.output_dir} directory")
+                #
+                #     if train_config.save_optimizer:
+                #         model_checkpointing.save_optimizer_checkpoint(
+                #             model, optimizer, rank, train_config, epoch = epoch, step = global_step
+                #         )
+                #         print("Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
+                #         print("=====================================================")
+                #     model_checkpointing.save_checkpoint_params(train_config, epoch, global_step)
+                #     ckpt_config.append({
+                #         "epoch": epoch,
+                #         "step": global_step
+                #     })
+                #     if rank == 0:
+                #         if len(ckpt_config) > train_config.save_last:
+                #             model_checkpointing.cleanup_checkpoints(train_config, ckpt_config)
+                #             ckpt_config = ckpt_config[1:]
+                #         print(f"checkpoints saved - {len(ckpt_config)} - {ckpt_config}")
+                #     if train_config.enable_fsdp:
+                #         dist.barrier()
+                # checkpoint_end_time = time.perf_counter() - checkpoint_start_time
+                # checkpoint_times.append(checkpoint_end_time)
         epoch_end_time = time.perf_counter()-epoch_start_time
         epoch_times.append(epoch_end_time)    
         resume_step = -1
