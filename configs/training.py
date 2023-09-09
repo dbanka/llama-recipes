@@ -27,13 +27,13 @@ class train_config:
     dataset = "tokenized_dataset"
     gradient_accumulation_steps: int = 4
     peft_method: str = "lora" # None , llama_adapter, prefix
-    use_peft: bool=False
+    use_peft: bool=True
     output_dir: str = "/opt/ml/model"
     freeze_layers: bool = False
     num_freeze_layers: int = 1
     quantization: bool = False
     one_gpu: bool = False
-    save_model: bool = False
+    save_model: bool = True
     dist_checkpoint_root_folder: str="/opt/ml" # will be used if using FSDP
     dist_checkpoint_folder: str="checkpoints" # will be used if using FSDP
     save_optimizer: bool=True # will be used if using FSDP

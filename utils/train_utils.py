@@ -19,7 +19,13 @@ import bitsandbytes as bnb
 """
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    get_peft_model_state_dict,
+    prepare_model_for_int8_training,
+    set_peft_model_state_dict,
+)
 from transformers import LlamaForCausalLM, LlamaTokenizer
 from torch.distributed.fsdp import StateDictType
 import torch.distributed as dist
@@ -203,27 +209,41 @@ def train(model, train_dataloader, eval_dataloader, tokenizer, optimizer, lr_sch
                 if train_config.enable_fsdp:
                     print("Waiting for all the processes to sync")
                     dist.barrier()
-                if  fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
-                    print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
-                    model_checkpointing.save_model_checkpoint(
-                        model, optimizer, rank, train_config, epoch=epoch
-                    )
-                elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
-                    print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
-                    print("=====================================================")
-                    # not implemented
-                    # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
-                    # if train_config.save_optimizer:
-                    #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
-                    #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
-                    #     print("=====================================================")
+                if train_config.use_peft:
+                    if train_config.enable_fsdp:
+                        if rank == 0:
+                            print(f"we are about to save the PEFT modules")
+                    else:
+                        print(f"we are about to save the PEFT modules")
+                    model.save_pretrained(train_config.output_dir)
+                    if train_config.enable_fsdp:
+                        if rank == 0:
+                            print(f"PEFT modules are saved in {train_config.output_dir} directory")
+                    else:
+                        print(f"PEFT modules are saved in {train_config.output_dir} directory")
 
-                if train_config.save_optimizer:
-                        model_checkpointing.save_optimizer_checkpoint(
+                else:
+                    if  fsdp_config.checkpoint_type == StateDictType.FULL_STATE_DICT:
+                        print(" Saving the FSDP model checkpoints using FULL_STATE_DICT")
+                        model_checkpointing.save_model_checkpoint(
                             model, optimizer, rank, train_config, epoch=epoch
                         )
-                        print(" Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
-                        print("=====================================================")                     
+                    elif fsdp_config.checkpoint_type == StateDictType.SHARDED_STATE_DICT:
+                        print(" Saving the FSDP model checkpoints using SHARDED_STATE_DICT")
+                        print("=====================================================")
+                        # not implemented
+                        # model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config)
+                        # if train_config.save_optimizer:
+                        #     model_checkpointing.save_model_and_optimizer_sharded(model, rank, train_config, optim=optimizer)
+                        #     print(" Saving the FSDP model checkpoints and optimizer using SHARDED_STATE_DICT")
+                        #     print("=====================================================")
+
+                    if train_config.save_optimizer:
+                            model_checkpointing.save_optimizer_checkpoint(
+                                model, optimizer, rank, train_config, epoch=epoch
+                            )
+                            print(" Saving the FSDP model checkpoints and optimizer using FULL_STATE_DICT")
+                            print("=====================================================")
                 if train_config.enable_fsdp:
                     print("Waiting for all the processes to sync")
                     dist.barrier()

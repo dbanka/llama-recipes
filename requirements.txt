@@ -9,6 +9,7 @@ black
 black[jupyter]
 datasets
 fire
+git+https://github.com/huggingface/peft.git
 sentencepiece
 py7zr
 scipy
