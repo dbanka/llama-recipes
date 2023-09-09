@@ -31,7 +31,7 @@ class train_config:
     output_dir: str = "/opt/ml/model"
     freeze_layers: bool = False
     num_freeze_layers: int = 1
-    quantization: bool = False
+    quantization: bool = True
     one_gpu: bool = False
     save_model: bool = True
     dist_checkpoint_root_folder: str="/opt/ml" # will be used if using FSDP
