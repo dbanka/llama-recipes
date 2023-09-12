@@ -244,7 +244,7 @@ def main(**kwargs):
             )
 
     # Create DataLoaders for the training and validation dataset
-    train_dataloader = StreamingDataLoader(
+    train_dataloader = torch.utils.data.DataLoader(
         dataset_train,
         batch_size=train_config.batch_size_training,
         num_workers=train_config.num_workers_dataloader,
