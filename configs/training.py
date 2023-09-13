@@ -14,7 +14,7 @@ class train_config:
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=False
-    batch_size_training: int= 2
+    batch_size_training: int= 4
     num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -37,7 +37,7 @@ class train_config:
     dist_checkpoint_root_folder: str="/opt/ml" # will be used if using FSDP
     dist_checkpoint_folder: str="checkpoints" # will be used if using FSDP
     save_optimizer: bool=True # will be used if using FSDP
-    use_fast_kernels: bool = False # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
+    use_fast_kernels: bool = True # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
     checkpoint_steps: int =200
     save_last: int = 2
