@@ -39,6 +39,6 @@ class train_config:
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
-    checkpoint_steps: int =200
+    checkpoint_steps: int =50
     save_last: int = 2
     tb_log_dir: str = "/opt/ml/output/tensorboard/"
