@@ -14,7 +14,7 @@ class train_config:
     enable_fsdp: bool=True
     low_cpu_fsdp: bool=False
     run_validation: bool=False
-    batch_size_training: int= 4
+    batch_size_training: int= 5
     num_epochs: int=2
     num_workers_dataloader: int=1
     lr: float=1e-4
@@ -39,6 +39,6 @@ class train_config:
     save_optimizer: bool=True # will be used if using FSDP
     use_fast_kernels: bool = True # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
     resume_from_checkpoint: bool = True
-    checkpoint_steps: int =50
+    checkpoint_steps: int =100
     save_last: int = 2
     tb_log_dir: str = "/opt/ml/output/tensorboard/"
